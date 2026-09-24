@@ -1,8 +1,32 @@
 {
-  "_comment": "Placeholder. Real connector config is written in Stage 4 (CDC & Kafka). Registered idempotently by scripts/register_connector.sh against Kafka Connect at KAFKA_CONNECT_URL.",
   "name": "source-db-connector",
   "config": {
     "connector.class": "io.debezium.connector.postgresql.PostgresConnector",
-    "_todo": "Stage 4 fills in database.hostname, slot.name, table.include.list, topic.prefix, etc."
+
+    "database.hostname": "source-db",
+    "database.port": "5432",
+    "database.user": "${SOURCE_DB_REPLICATION_USER}",
+    "database.password": "${SOURCE_DB_REPLICATION_PASSWORD}",
+    "database.dbname": "${SOURCE_DB_NAME}",
+
+    "topic.prefix": "bluesky",
+    "schema.include.list": "public",
+    "table.include.list": "public.users,public.posts,public.likes,public.reposts,public.follows,public.blocks,public.profile_updates",
+
+    "plugin.name": "pgoutput",
+    "publication.name": "dbz_publication",
+    "publication.autocreate.mode": "disabled",
+    "slot.name": "debezium_slot",
+    "snapshot.mode": "initial",
+
+    "key.converter": "org.apache.kafka.connect.json.JsonConverter",
+    "key.converter.schemas.enable": "false",
+    "value.converter": "org.apache.kafka.connect.json.JsonConverter",
+    "value.converter.schemas.enable": "false",
+
+    "errors.tolerance": "all",
+    "errors.deadletterqueue.topic.name": "dlq",
+    "errors.deadletterqueue.topic.replication.factor": "1",
+    "errors.deadletterqueue.context.headers.enable": "true"
   }
 }

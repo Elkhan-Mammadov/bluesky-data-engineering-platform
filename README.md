@@ -5,13 +5,13 @@ Jetstream** feed and turns it into a live analytics dashboard: activity
 trends, trending hashtags, user segments and bot-like account detection -
 all refreshed every 5 seconds.
 
-> Current status: **Stage 6 - dbt.** `make run-dbt` (DAG 04) builds
-> staging -> intermediate -> marts on a schedule: a rule-based user segment
-> with full SCD2 history, trending hashtags, engagement, and a rule-based
-> anomalous-accounts mart - all tested (unique/not_null/accepted_values/
-> relationships) and documented in dbt docs. Grafana is still a
-> placeholder, built in Stage 7. See `docs/PROJECT_PLAN.md` section 8 for
-> the full roadmap.
+> Current status: **Stage 7 - Grafana.** The "Bluesky Real-Time Activity"
+> dashboard (`localhost:3000`) is fully provisioned - no manual setup - with
+> 3 rows (real-time, analytics, pipeline health), a 5-second refresh,
+> Airflow DAG-run annotations, and event-type/language filters. All 7
+> stages of the pipeline are now built end to end; Stage 8 (reliability,
+> retention, final review) is what's left. See `docs/PROJECT_PLAN.md`
+> section 8 for the full roadmap.
 
 ## Purpose
 

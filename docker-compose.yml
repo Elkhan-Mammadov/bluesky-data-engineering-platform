@@ -9,6 +9,7 @@ volumes:
   airflow_logs:
   kafka_data:
   grafana_data:
+  spark_checkpoints:
 
 services:
 
@@ -259,9 +260,17 @@ services:
     depends_on:
       spark-master:
         condition: service_healthy
+      kafka:
+        condition: service_healthy
+      warehouse-db:
+        condition: service_healthy
     env_file: .env
     entrypoint: ["/bin/bash", "/opt/app/streaming/launcher.sh"]
     mem_limit: ${SPARK_DRIVER_MEMORY}
+    volumes:
+      - spark_checkpoints:/opt/app/checkpoints
+    ports:
+      - "127.0.0.1:4040:4040"
     healthcheck:
       test: ["CMD-SHELL", "find /tmp/launcher_heartbeat -mmin -1 2>/dev/null | grep -q . || exit 1"]
       interval: 10s

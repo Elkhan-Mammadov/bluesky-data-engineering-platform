@@ -81,7 +81,7 @@ start-cdc: ## Equivalent of DAG 02_start_cdc_kafka
 	docker compose exec airflow-scheduler airflow dags trigger 02_start_cdc_kafka
 
 start-spark: ## Equivalent of DAG 03_start_spark_streaming
-	@echo "make start-spark: implemented in Stage 5 (Spark streaming)"
+	docker compose exec airflow-scheduler airflow dags trigger 03_start_spark_streaming
 
 run-dbt: ## Equivalent of DAG 04_dbt_transform
 	@echo "make run-dbt: implemented in Stage 6 (dbt)"

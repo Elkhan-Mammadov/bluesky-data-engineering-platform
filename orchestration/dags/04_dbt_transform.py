@@ -29,18 +29,20 @@ with DAG(
     default_args=default_args,
     tags=["dbt"],
 ) as dag:
-    # TODO (Stage 6): confirm the dbt executable/venv path once the Airflow
-    # image (infra/airflow/Dockerfile) installs dbt in Stage 2.
+    # dbt lives in its own virtualenv (infra/airflow/Dockerfile, Stage 2) so
+    # its dependencies never collide with Airflow's own.
+    DBT_BIN = "/home/airflow/dbt_venv/bin/dbt"
+
     snapshot = BashOperator(
         task_id="dbt_snapshot",
-        bash_command="cd " + DBT_PROJECT_DIR + " && dbt snapshot",
+        bash_command="cd " + DBT_PROJECT_DIR + " && " + DBT_BIN + " snapshot",
     )
     run = BashOperator(
         task_id="dbt_run",
-        bash_command="cd " + DBT_PROJECT_DIR + " && dbt run",
+        bash_command="cd " + DBT_PROJECT_DIR + " && " + DBT_BIN + " run",
     )
     test = BashOperator(
         task_id="dbt_test",
-        bash_command="cd " + DBT_PROJECT_DIR + " && dbt test",
+        bash_command="cd " + DBT_PROJECT_DIR + " && " + DBT_BIN + " test",
     )
     snapshot >> run >> test

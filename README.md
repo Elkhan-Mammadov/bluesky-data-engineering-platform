@@ -5,13 +5,13 @@ Jetstream** feed and turns it into a live analytics dashboard: activity
 trends, trending hashtags, user segments and bot-like account detection -
 all refreshed every 5 seconds.
 
-> Current status: **Stage 7 - Grafana.** The "Bluesky Real-Time Activity"
-> dashboard (`localhost:3000`) is fully provisioned - no manual setup - with
-> 3 rows (real-time, analytics, pipeline health), a 5-second refresh,
-> Airflow DAG-run annotations, and event-type/language filters. All 7
-> stages of the pipeline are now built end to end; Stage 8 (reliability,
-> retention, final review) is what's left. See `docs/PROJECT_PLAN.md`
-> section 8 for the full roadmap.
+> Current status: **All 8 stages complete.** The full pipeline runs end to
+> end: real Bluesky Jetstream ingestion, CDC via Debezium, Spark
+> Structured Streaming, dbt marts with SCD2 history, a live Grafana
+> dashboard, daily retention, and a one-command demo reset. 34 unit tests
+> and `ruff` pass. See `docs/PROJECT_PLAN.md` section 8 for how each stage
+> was built and `docs/RUNBOOK.md` for the step-by-step verification
+> scenario.
 
 ## Purpose
 
@@ -103,6 +103,37 @@ make down     # stop everything, keep data
 make restart  # stop and start again, data persists
 make clean    # stop everything AND delete all volumes
 ```
+
+## All Makefile targets
+
+The commands above cover the common path; every target also works on its
+own:
+
+| Target | What it does |
+|---|---|
+| `make env` | Create `.env` from `.env.example` (never overwrites) |
+| `make venv` | Create a local Python virtual environment with all dependencies |
+| `make up` | Build and start every service |
+| `make up-infra` | Start only the databases and Kafka |
+| `make up-stream` | Start only Kafka Connect, ingestor, simulator and Spark |
+| `make up-orchestration` | Start only Airflow |
+| `make up-serving` | Start only Grafana and dbt-docs |
+| `make down` | Stop everything, keep data |
+| `make restart` | Stop and start again, data persists |
+| `make clean` | Stop everything **and delete all volumes** |
+| `make ps` | Show service status (`docker compose ps`) |
+| `make health` | Run `scripts/check_health.sh` |
+| `make status` | Run `scripts/pipeline_status.sh` (row counts per layer, every 5s) |
+| `make logs service=<name>` | Tail one service's logs |
+| `make urls` | Print every UI link |
+| `make tunnel` | Print the SSH tunnel command with every port |
+| `make start-ingestion` / `make stop-ingestion` | DAG 01 / DAG 05 |
+| `make start-cdc` | DAG 02 |
+| `make start-spark` | DAG 03 |
+| `make run-dbt` | DAG 04 |
+| `make reset-demo` | Run `scripts/reset_demo.sh` (host-side equivalent of DAG 99) |
+| `make test` | Run the pytest suite |
+| `make lint` | Run `ruff check .` |
 
 ## UI links
 

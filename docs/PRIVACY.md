@@ -19,9 +19,10 @@ this platform either.
 | Data | Kept? | Form it is kept in |
 |---|---|---|
 | User identifier (DID) | Yes | Salted SHA-256 hash (see below) - never the raw DID |
+| Target of a like/repost/follow/block | Yes | Also a salted hash of the target's DID - the target account is never stored in the clear either |
 | Handle / display name / avatar | **No** | Never read into any table |
 | Post text | **No** | Never stored |
-| Post language | Yes | Detected from text, text itself discarded |
+| Post language | Yes | Read from Bluesky's own `record.langs` field (the language the author selected) - post text is never analyzed |
 | Post length | Yes | Character count only |
 | Hashtags | Yes | Extracted list of tags, not the surrounding text |
 | Has link / has media / is reply | Yes | Boolean flags derived from the record |
@@ -61,8 +62,24 @@ hash_user_id(user_did, salt) = sha256(f"{salt}:{user_did}")
 ## Retention
 
 Old data is deleted daily by DAG `06_data_retention`, after
-`DATA_RETENTION_DAYS` (default 7, configurable in `.env`). Shorter
-retention means less exposure even for the hashed, already-anonymized data.
+`DATA_RETENTION_DAYS` (default 7, configurable in `.env`). This prunes
+`source-db` and the warehouse's operational layers (`raw`, `realtime`,
+`dq.quarantine`/`stream_batches`) - shorter retention means less exposure
+even for the hashed, already-anonymized data. Aggregated marts (e.g.
+trending hashtags, engagement) are kept longer as analytical history,
+since they no longer carry anything more identifying than a hash.
+
+For a full reset (course demos, not routine use), DAG `99_reset_demo` /
+`make reset-demo` empties every table, including marts.
+
+## Requesting deletion
+
+Because every stored identifier is a one-way salted hash, this platform
+itself cannot look up "which row belongs to me" from a handle - by
+design, it never learns the mapping in the first place. Rotating
+`USER_ID_HASH_SALT` and restarting the ingestor makes every future hash
+for every user unrelated to past hashes, and `make reset-demo` clears all
+data already collected.
 
 ## Bluesky terms of use
 

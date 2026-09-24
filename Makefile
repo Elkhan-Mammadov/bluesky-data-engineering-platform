@@ -34,34 +34,34 @@ tunnel: ## Print the SSH tunnel command with all ports
 	@echo '    -L 8081:localhost:8081 -L 8088:localhost:8088 -L 3000:localhost:3000 \'
 	@echo '    -L 5432:localhost:5432 -L 5433:localhost:5433 <user>@<remote-host>'
 
-# ---- Stage 2 (Infrastructure): real bodies added when docker-compose.yml exists ----
+# ---- Stage 2 (Infrastructure) ----
 
-up: ## Build and start everything
-	@echo "make up: implemented in Stage 2 (Infrastructure)"
+up: ## Build and start every service
+	docker compose up -d --build
 
-up-infra: ## Databases and Kafka
-	@echo "make up-infra: implemented in Stage 2 (Infrastructure)"
+up-infra: ## Databases and Kafka only
+	docker compose up -d --build source-db warehouse-db airflow-metadata-db kafka kafka-init kafka-ui
 
-up-stream: ## Kafka Connect, ingestor, simulator, Spark
-	@echo "make up-stream: implemented across Stage 2, Stage 4 and Stage 5"
+up-stream: ## Kafka Connect, ingestor, simulator, Spark cluster
+	docker compose up -d --build kafka-connect ingestor simulator spark-master spark-worker spark-streaming
 
 up-orchestration: ## Airflow
-	@echo "make up-orchestration: implemented in Stage 2 (Infrastructure)"
+	docker compose up -d --build airflow-init airflow-webserver airflow-scheduler
 
 up-serving: ## Grafana and dbt-docs
-	@echo "make up-serving: implemented in Stage 2 (Infrastructure) and Stage 7 (Grafana)"
+	docker compose up -d --build grafana dbt-docs
 
-down: ## Stop everything, keep data
-	@echo "make down: implemented in Stage 2 (Infrastructure)"
+down: ## Stop everything, keep data (named volumes are untouched)
+	docker compose down
 
 restart: ## Stop and start again, keep data
-	@echo "make restart: implemented in Stage 2 (Infrastructure)"
+	docker compose restart
 
-clean: ## Remove everything including volumes
-	@echo "make clean: implemented in Stage 2 (Infrastructure)"
+clean: ## Stop everything AND delete all volumes (data loss)
+	docker compose down -v
 
 ps: ## Service status
-	@echo "make ps: implemented in Stage 2 (Infrastructure)"
+	docker compose ps
 
 health: ## Run check_health.sh
 	@bash scripts/check_health.sh
@@ -70,7 +70,7 @@ status: ## Run pipeline_status.sh (row counts per layer every 5s)
 	@bash scripts/pipeline_status.sh
 
 logs: ## Show logs for one service, e.g. make logs service=ingestor
-	@echo "make logs: implemented in Stage 2 (Infrastructure). Usage: make logs service=<name>"
+	docker compose logs -f $(service)
 
 # ---- Stage 3-6: Airflow DAG equivalents ----
 

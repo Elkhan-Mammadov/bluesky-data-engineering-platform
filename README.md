@@ -5,13 +5,13 @@ Jetstream** feed and turns it into a live analytics dashboard: activity
 trends, trending hashtags, user segments and bot-like account detection -
 all refreshed every 5 seconds.
 
-> Current status: **Stage 5 - Spark streaming.** `make start-spark` (DAG 03)
-> turns on the real Spark Structured Streaming job: every 5 seconds it
-> cleans the CDC stream, upserts into `warehouse-db`'s `raw` schema,
-> quarantines anything invalid instead of stopping, and updates the
-> `realtime` per-minute aggregates Grafana will read from. dbt and Grafana
-> are still placeholders, built in Stages 6-7. See
-> `docs/PROJECT_PLAN.md` section 8 for the full roadmap.
+> Current status: **Stage 6 - dbt.** `make run-dbt` (DAG 04) builds
+> staging -> intermediate -> marts on a schedule: a rule-based user segment
+> with full SCD2 history, trending hashtags, engagement, and a rule-based
+> anomalous-accounts mart - all tested (unique/not_null/accepted_values/
+> relationships) and documented in dbt docs. Grafana is still a
+> placeholder, built in Stage 7. See `docs/PROJECT_PLAN.md` section 8 for
+> the full roadmap.
 
 ## Purpose
 

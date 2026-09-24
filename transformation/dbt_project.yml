@@ -1,0 +1,23 @@
+# dbt project definition.
+# Model-level configs (materializations, schemas per layer) are added
+# together with the actual models in Stage 6 (dbt).
+name: 'bluesky_activity'
+version: '1.0.0'
+config-version: 2
+
+profile: 'bluesky_activity'
+
+model-paths: ["models"]
+snapshot-paths: ["snapshots"]
+test-paths: ["tests"]
+seed-paths: ["seeds"]
+macro-paths: ["macros"]
+
+target-path: "target"
+clean-targets:
+  - "target"
+  - "dbt_packages"
+
+models:
+  bluesky_activity:
+    # TODO (Stage 6): staging/intermediate/marts materializations and schemas

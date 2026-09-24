@@ -1,6 +1,42 @@
-# Grafana datasource provisioning.
-# Real datasource pointing at warehouse-db is wired in Stage 7 (Grafana).
+# Grafana datasource provisioning - loaded automatically, no manual setup.
+#
+# Two datasources because Postgres cannot query across databases:
+# warehouse-db (raw/realtime/marts/dq/control) is used by almost every
+# panel; source-db is only used by the "row counts per layer" panel in
+# Row 3, which needs source-db's own counts alongside warehouse-db's.
+#
+# Passwords use $__env{...}, Grafana's own provisioning-time environment
+# variable substitution - not docker-compose's ${...}, since this file is
+# read directly by the Grafana process, not by docker compose.
 apiVersion: 1
 
-datasources: []
-# TODO (Stage 7): add the warehouse-db PostgreSQL datasource here.
+datasources:
+  - name: warehouse-db
+    uid: warehouse-db-postgres
+    type: postgres
+    access: proxy
+    url: warehouse-db:5432
+    database: $__env{WAREHOUSE_DB_NAME}
+    user: $__env{WAREHOUSE_DB_USER}
+    isDefault: true
+    editable: false
+    jsonData:
+      sslmode: disable
+      postgresVersion: 1600
+    secureJsonData:
+      password: $__env{WAREHOUSE_DB_PASSWORD}
+
+  - name: source-db
+    uid: source-db-postgres
+    type: postgres
+    access: proxy
+    url: source-db:5432
+    database: $__env{SOURCE_DB_NAME}
+    user: $__env{SOURCE_DB_USER}
+    isDefault: false
+    editable: false
+    jsonData:
+      sslmode: disable
+      postgresVersion: 1600
+    secureJsonData:
+      password: $__env{SOURCE_DB_PASSWORD}

@@ -402,6 +402,14 @@ services:
     container_name: grafana
     restart: unless-stopped
     networks: [bluesky-net]
+    depends_on:
+      warehouse-db:
+        condition: service_healthy
+      source-db:
+        condition: service_healthy
+    # Datasource passwords in datasources.yml are read from here via
+    # Grafana's own $__env{...} provisioning syntax.
+    env_file: .env
     environment:
       GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER}
       GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD}

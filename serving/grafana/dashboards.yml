@@ -1,8 +1,14 @@
-# Grafana dashboard provisioning.
-# Loads bluesky_dashboard.json automatically - no manual UI setup.
-# Fully wired in Stage 7 (Grafana).
+# Grafana dashboard provisioning - loads bluesky_dashboard.json
+# automatically from the mounted directory, no manual UI import needed.
 apiVersion: 1
 
-providers: []
-# TODO (Stage 7): add a provider pointing at this directory so
-# bluesky_dashboard.json is loaded on startup.
+providers:
+  - name: 'bluesky-dashboards'
+    orgId: 1
+    folder: ''
+    type: file
+    disableDeletion: false
+    updateIntervalSeconds: 10
+    allowUiUpdates: false
+    options:
+      path: /var/lib/grafana/dashboards

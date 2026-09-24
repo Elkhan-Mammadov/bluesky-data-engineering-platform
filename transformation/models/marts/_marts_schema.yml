@@ -1,0 +1,76 @@
+version: 2
+
+models:
+  - name: dim_user
+    columns:
+      - name: user_id_hash
+        tests: [not_null]
+      - name: segment
+        tests:
+          - accepted_values:
+              values: ['creator', 'engager', 'lurker']
+
+  - name: dim_date
+    columns:
+      - name: date_day
+        tests: [unique, not_null]
+
+  - name: dim_hashtag
+    columns:
+      - name: hashtag
+        tests: [unique, not_null]
+
+  - name: dim_language
+    columns:
+      - name: language
+        tests: [unique, not_null]
+
+  - name: fct_posts
+    columns:
+      - name: post_id
+        tests: [unique, not_null]
+      - name: user_id_hash
+        tests:
+          - relationships:
+              to: ref('dim_user')
+              field: user_id_hash
+              config: {severity: warn}
+
+  - name: fct_interactions
+    columns:
+      - name: interaction_type
+        tests:
+          - accepted_values:
+              values: ['like', 'repost', 'follow', 'block']
+      - name: user_id_hash
+        tests: [not_null]
+      - name: target_user_id_hash
+        tests:
+          # A like/follow/etc. may target a user we never sampled - that's
+          # expected (docs/PROJECT_PLAN.md section 2), so this only warns.
+          - relationships:
+              to: ref('dim_user')
+              field: user_id_hash
+              config: {severity: warn}
+
+  - name: fct_user_daily_activity
+    columns:
+      - name: user_id_hash
+        tests: [not_null]
+      - name: activity_date
+        tests: [not_null]
+
+  - name: mart_engagement
+    columns:
+      - name: post_id
+        tests: [unique, not_null]
+
+  - name: mart_trending_hashtags
+    columns:
+      - name: hashtag
+        tests: [not_null]
+
+  - name: mart_anomalous_accounts
+    columns:
+      - name: user_id_hash
+        tests: [unique, not_null]

@@ -1,0 +1,49 @@
+version: 2
+
+models:
+  - name: stg_users
+    columns:
+      - name: user_id_hash
+        tests: [unique, not_null]
+
+  - name: stg_posts
+    columns:
+      - name: post_id
+        tests: [unique, not_null]
+      - name: user_id_hash
+        tests: [not_null]
+
+  - name: stg_likes
+    columns:
+      - name: like_id
+        tests: [unique, not_null]
+      - name: user_id_hash
+        tests: [not_null]
+
+  - name: stg_reposts
+    columns:
+      - name: repost_id
+        tests: [unique, not_null]
+      - name: user_id_hash
+        tests: [not_null]
+
+  - name: stg_follows
+    columns:
+      - name: follow_id
+        tests: [unique, not_null]
+      - name: user_id_hash
+        tests: [not_null]
+      - name: target_user_id_hash
+        tests: [not_null]
+
+  - name: stg_blocks
+    columns:
+      - name: block_id
+        tests: [unique, not_null]
+      - name: user_id_hash
+        tests: [not_null]
+
+  - name: stg_profile_updates
+    columns:
+      - name: user_id_hash
+        tests: [unique, not_null]

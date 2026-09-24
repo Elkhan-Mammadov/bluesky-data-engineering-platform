@@ -1,0 +1,34 @@
+version: 2
+
+sources:
+  - name: raw
+    schema: raw
+    tables:
+      - name: users
+        loaded_at_field: ingested_at
+        freshness:
+          warn_after: {count: 1, period: minute}
+      - name: posts
+        loaded_at_field: ingested_at
+        freshness:
+          warn_after: {count: 1, period: minute}
+      - name: likes
+        loaded_at_field: ingested_at
+        freshness:
+          warn_after: {count: 1, period: minute}
+      - name: reposts
+        loaded_at_field: ingested_at
+        freshness:
+          warn_after: {count: 1, period: minute}
+      - name: follows
+        loaded_at_field: ingested_at
+        freshness:
+          warn_after: {count: 1, period: minute}
+      - name: blocks
+        loaded_at_field: ingested_at
+        freshness:
+          warn_after: {count: 1, period: minute}
+      - name: profile_updates
+        loaded_at_field: ingested_at
+        freshness:
+          warn_after: {count: 1, period: minute}

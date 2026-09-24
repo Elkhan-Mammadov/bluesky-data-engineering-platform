@@ -58,6 +58,9 @@ ingestor:
 # ---------------------------------------------------------------------------
 simulator:
   api_port: 8001
+  # The ingestor connects here (via JetstreamClient) when SOURCE_MODE=simulator,
+  # exactly like it would connect to a real Jetstream host.
+  subscribe_url: "ws://simulator:8001/subscribe"
   events_per_second: 20
   # Fraction of generated events that are intentionally malformed, so the
   # Spark cleaning stage (stage 5) has real quarantine cases to catch.

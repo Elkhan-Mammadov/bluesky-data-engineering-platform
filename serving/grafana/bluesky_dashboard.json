@@ -1,0 +1,6 @@
+{
+  "_comment": "Placeholder. The real 'Bluesky Real-Time Activity' dashboard (3 rows, 5s refresh) is built in Stage 7 (Grafana).",
+  "title": "Bluesky Real-Time Activity",
+  "refresh": "5s",
+  "panels": []
+}

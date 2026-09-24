@@ -1,0 +1,6 @@
+# Grafana datasource provisioning.
+# Real datasource pointing at warehouse-db is wired in Stage 7 (Grafana).
+apiVersion: 1
+
+datasources: []
+# TODO (Stage 7): add the warehouse-db PostgreSQL datasource here.

@@ -1,0 +1,43 @@
+# Environment secrets
+.env
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
+
+# dbt
+transformation/target/
+transformation/dbt_packages/
+transformation/logs/
+transformation/package-lock.yml
+
+# Spark
+streaming/checkpoints/
+*.crc
+_SUCCESS
+
+# Airflow
+orchestration/logs/
+orchestration/airflow.db
+orchestration/airflow.cfg
+orchestration/webserver_config.py
+
+# Data / dumps
+data/
+*.csv
+*.parquet
+
+# Logs
+*.log
+
+# IDE / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

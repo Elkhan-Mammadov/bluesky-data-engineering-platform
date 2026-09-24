@@ -5,10 +5,12 @@ Jetstream** feed and turns it into a live analytics dashboard: activity
 trends, trending hashtags, user segments and bot-like account detection -
 all refreshed every 5 seconds.
 
-> Current status: **Stage 1 - Skeleton & docs.** The full repository
-> structure, docs and placeholder modules exist; no service runs yet.
-> Infrastructure (Docker Compose, real Makefile targets) is built in
-> Stage 2. See `docs/PROJECT_PLAN.md` section 8 for the full roadmap.
+> Current status: **Stage 2 - Infrastructure.** `docker-compose.yml` brings
+> up all 17 services (databases, Kafka, Spark cluster, Airflow, Grafana,
+> dbt-docs) in a healthy state; `make up` / `make health` / `make restart`
+> work end to end. No business logic runs yet - the ingestor, Spark job
+> and dbt models are still placeholders, built in Stages 3-6. See
+> `docs/PROJECT_PLAN.md` section 8 for the full roadmap.
 
 ## Purpose
 

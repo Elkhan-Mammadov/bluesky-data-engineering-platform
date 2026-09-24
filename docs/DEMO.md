@@ -1,8 +1,6 @@
 # Demo script
 
-> Status: skeleton written in Stage 1, following the scenario in
-> `docs/RUNBOOK.md`. The talking points and screenshots are finalized in
-> Stage 7 (Grafana), once the dashboard exists and has real data to show.
+Follows the scenario in `docs/RUNBOOK.md`.
 
 ## Before the demo: tabs to open
 

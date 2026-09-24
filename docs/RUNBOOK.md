@@ -1,10 +1,5 @@
 # Runbook
 
-> Status: skeleton written in Stage 1. Each step below will be executed and
-> confirmed for real once the matching stage is built (the stage number is
-> noted per step). The final, fully-verified version - with the exact
-> before/after screenshots - is completed in Stage 7 (Grafana).
-
 This is the exact sequence a reviewer (or you, at the defense) runs to see
 the whole pipeline come alive, one stage at a time. Every step maps to
 either an Airflow DAG or a `make` command - both do the same thing.
@@ -49,7 +44,7 @@ either an Airflow DAG or a `make` command - both do the same thing.
 
 | | |
 |---|---|
-| Command | open `localhost:3000` |
+| Command | open `localhost:3000` (or `make status` for the same row counts in the terminal) |
 | UI | Grafana, "Bluesky Real-Time Activity" dashboard, Row 1 |
 | Before | Real-time panels are empty (no data yet if Steps 1-3 were skipped) |
 | After | Stat panels, time series and tables refresh every 5 seconds; end-to-end latency stays under 10 seconds |

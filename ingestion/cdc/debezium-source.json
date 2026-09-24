@@ -1,0 +1,8 @@
+{
+  "_comment": "Placeholder. Real connector config is written in Stage 4 (CDC & Kafka). Registered idempotently by scripts/register_connector.sh against Kafka Connect at KAFKA_CONNECT_URL.",
+  "name": "source-db-connector",
+  "config": {
+    "connector.class": "io.debezium.connector.postgresql.PostgresConnector",
+    "_todo": "Stage 4 fills in database.hostname, slot.name, table.include.list, topic.prefix, etc."
+  }
+}

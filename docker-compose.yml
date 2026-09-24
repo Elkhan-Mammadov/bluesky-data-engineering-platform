@@ -1,0 +1,403 @@
+networks:
+  bluesky-net:
+    driver: bridge
+
+volumes:
+  source_db_data:
+  warehouse_db_data:
+  airflow_db_data:
+  airflow_logs:
+  kafka_data:
+  grafana_data:
+
+services:
+
+  # ============================== Databases ================================
+
+  source-db:
+    image: postgres:16.15-alpine3.23
+    container_name: source-db
+    restart: unless-stopped
+    networks: [bluesky-net]
+    environment:
+      POSTGRES_DB: ${SOURCE_DB_NAME}
+      POSTGRES_USER: ${SOURCE_DB_USER}
+      POSTGRES_PASSWORD: ${SOURCE_DB_PASSWORD}
+      SOURCE_DB_REPLICATION_USER: ${SOURCE_DB_REPLICATION_USER}
+      SOURCE_DB_REPLICATION_PASSWORD: ${SOURCE_DB_REPLICATION_PASSWORD}
+    # Logical replication must be enabled for Debezium (Stage 4) to read
+    # source-db's write-ahead log.
+    command: >
+      postgres
+      -c wal_level=logical
+      -c max_wal_senders=10
+      -c max_replication_slots=10
+    volumes:
+      - source_db_data:/var/lib/postgresql/data
+      - ./infra/postgres/source-init:/docker-entrypoint-initdb.d:ro
+    ports:
+      - "127.0.0.1:5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  warehouse-db:
+    image: postgres:16.15-alpine3.23
+    container_name: warehouse-db
+    restart: unless-stopped
+    networks: [bluesky-net]
+    environment:
+      POSTGRES_DB: ${WAREHOUSE_DB_NAME}
+      POSTGRES_USER: ${WAREHOUSE_DB_USER}
+      POSTGRES_PASSWORD: ${WAREHOUSE_DB_PASSWORD}
+    volumes:
+      - warehouse_db_data:/var/lib/postgresql/data
+      - ./infra/postgres/warehouse-init:/docker-entrypoint-initdb.d:ro
+    ports:
+      - "127.0.0.1:5433:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  airflow-metadata-db:
+    image: postgres:16.15-alpine3.23
+    container_name: airflow-metadata-db
+    restart: unless-stopped
+    networks: [bluesky-net]
+    environment:
+      POSTGRES_DB: ${AIRFLOW_DB_NAME}
+      POSTGRES_USER: ${AIRFLOW_DB_USER}
+      POSTGRES_PASSWORD: ${AIRFLOW_DB_PASSWORD}
+    volumes:
+      - airflow_db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # ================================ Kafka ===================================
+
+  kafka:
+    image: apache/kafka:3.7.1
+    container_name: kafka
+    restart: unless-stopped
+    networks: [bluesky-net]
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_LISTENERS: PLAINTEXT://:9092,CONTROLLER://:9093
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_LOG_DIRS: /var/lib/kafka/data
+    volumes:
+      - kafka_data:/var/lib/kafka/data
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/kafka/bin/kafka-broker-api-versions.sh --bootstrap-server localhost:9092"]
+      interval: 10s
+      timeout: 10s
+      retries: 10
+      start_period: 20s
+
+  # One-shot: waits for Kafka, then creates the DLQ topic malformed
+  # Debezium messages will land in (Stage 4). Exits 0 once done.
+  kafka-init:
+    image: apache/kafka:3.7.1
+    container_name: kafka-init
+    restart: "no"
+    networks: [bluesky-net]
+    depends_on:
+      kafka:
+        condition: service_healthy
+    entrypoint: ["/bin/bash", "-c"]
+    command:
+      - |
+        /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:9092 \
+          --create --if-not-exists --topic dlq --partitions 1 --replication-factor 1
+        echo "[kafka-init] dlq topic ready"
+
+  kafka-ui:
+    image: provectuslabs/kafka-ui:v0.7.2
+    container_name: kafka-ui
+    restart: unless-stopped
+    networks: [bluesky-net]
+    depends_on:
+      kafka:
+        condition: service_healthy
+    environment:
+      KAFKA_CLUSTERS_0_NAME: local
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: ${KAFKA_BOOTSTRAP_SERVERS}
+      KAFKA_CLUSTERS_0_KAFKACONNECT_0_NAME: connect
+      KAFKA_CLUSTERS_0_KAFKACONNECT_0_ADDRESS: ${KAFKA_CONNECT_URL}
+    ports:
+      - "127.0.0.1:8085:8080"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8080/actuator/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 15s
+
+  kafka-connect:
+    image: debezium/connect:2.7.3.Final
+    container_name: kafka-connect
+    restart: unless-stopped
+    networks: [bluesky-net]
+    depends_on:
+      kafka:
+        condition: service_healthy
+      kafka-init:
+        condition: service_completed_successfully
+    environment:
+      BOOTSTRAP_SERVERS: ${KAFKA_BOOTSTRAP_SERVERS}
+      GROUP_ID: bluesky-connect
+      CONFIG_STORAGE_TOPIC: connect_configs
+      OFFSET_STORAGE_TOPIC: connect_offsets
+      STATUS_STORAGE_TOPIC: connect_statuses
+    ports:
+      - "127.0.0.1:8083:8083"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8083/connectors || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 15
+      start_period: 30s
+
+  # ========================== Ingestion services ============================
+
+  ingestor:
+    build:
+      context: .
+      dockerfile: infra/ingestor/Dockerfile
+    container_name: ingestor
+    restart: unless-stopped
+    networks: [bluesky-net]
+    env_file: .env
+    depends_on:
+      source-db:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:8000:8000"
+
+  simulator:
+    build:
+      context: .
+      dockerfile: infra/simulator/Dockerfile
+    container_name: simulator
+    restart: unless-stopped
+    networks: [bluesky-net]
+    env_file: .env
+    ports:
+      - "127.0.0.1:8001:8001"
+
+  # ============================ Spark cluster ===============================
+
+  spark-master:
+    build:
+      context: .
+      dockerfile: infra/spark/Dockerfile
+    container_name: spark-master
+    restart: unless-stopped
+    networks: [bluesky-net]
+    command: ["/opt/spark/bin/spark-class", "org.apache.spark.deploy.master.Master",
+               "--host", "spark-master", "--port", "7077", "--webui-port", "8080"]
+    ports:
+      - "127.0.0.1:8080:8080"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8080 || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 15s
+
+  spark-worker:
+    build:
+      context: .
+      dockerfile: infra/spark/Dockerfile
+    container_name: spark-worker
+    restart: unless-stopped
+    networks: [bluesky-net]
+    depends_on:
+      spark-master:
+        condition: service_healthy
+    command: ["/opt/spark/bin/spark-class", "org.apache.spark.deploy.worker.Worker",
+               "spark://spark-master:7077", "--webui-port", "8081"]
+    environment:
+      SPARK_WORKER_MEMORY: ${SPARK_WORKER_MEMORY}
+      SPARK_WORKER_CORES: 2
+    mem_limit: ${SPARK_WORKER_MEMORY}
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8081 || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 15s
+
+  # Runs streaming/launcher.sh, which will spark-submit the streaming job
+  # once control.pipeline_switches.spark_enabled is on (Stage 5). Until
+  # then it just stays up, reporting healthy via a heartbeat file.
+  spark-streaming:
+    build:
+      context: .
+      dockerfile: infra/spark/Dockerfile
+    container_name: spark-streaming
+    restart: unless-stopped
+    networks: [bluesky-net]
+    depends_on:
+      spark-master:
+        condition: service_healthy
+    env_file: .env
+    entrypoint: ["/bin/bash", "/opt/app/streaming/launcher.sh"]
+    mem_limit: ${SPARK_DRIVER_MEMORY}
+    healthcheck:
+      test: ["CMD-SHELL", "find /tmp/launcher_heartbeat -mmin -1 2>/dev/null | grep -q . || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 15s
+
+  # ============================== Airflow ===================================
+
+  airflow-init:
+    build:
+      context: .
+      dockerfile: infra/airflow/Dockerfile
+    container_name: airflow-init
+    restart: "no"
+    networks: [bluesky-net]
+    # Run as the host user (set AIRFLOW_UID=$(id -u) in .env on Linux) so
+    # files written into the bind-mounted dags/ and transformation/
+    # directories stay writable/readable from outside the container too.
+    user: "${AIRFLOW_UID}:0"
+    depends_on:
+      airflow-metadata-db:
+        condition: service_healthy
+    environment: &airflow-common-env
+      AIRFLOW__CORE__EXECUTOR: LocalExecutor
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://${AIRFLOW_DB_USER}:${AIRFLOW_DB_PASSWORD}@airflow-metadata-db:5432/${AIRFLOW_DB_NAME}
+      AIRFLOW__CORE__FERNET_KEY: ${AIRFLOW__CORE__FERNET_KEY}
+      AIRFLOW__WEBSERVER__SECRET_KEY: ${AIRFLOW__WEBSERVER__SECRET_KEY}
+      AIRFLOW__CORE__LOAD_EXAMPLES: "false"
+      DBT_RUN_INTERVAL_MINUTES: ${DBT_RUN_INTERVAL_MINUTES}
+    command: >
+      bash -c "airflow db migrate &&
+      airflow users create --username ${AIRFLOW_ADMIN_USER} --password ${AIRFLOW_ADMIN_PASSWORD}
+      --firstname Admin --lastname User --role Admin --email admin@example.com || true"
+    volumes:
+      - airflow_logs:/opt/airflow/logs
+
+  airflow-webserver:
+    build:
+      context: .
+      dockerfile: infra/airflow/Dockerfile
+    container_name: airflow-webserver
+    restart: unless-stopped
+    networks: [bluesky-net]
+    user: "${AIRFLOW_UID}:0"
+    depends_on:
+      airflow-init:
+        condition: service_completed_successfully
+    environment: *airflow-common-env
+    command: airflow webserver
+    mem_limit: ${AIRFLOW_MEMORY_LIMIT}
+    volumes:
+      - ./orchestration/dags:/opt/airflow/dags
+      - ./transformation:/opt/airflow/transformation
+      - airflow_logs:/opt/airflow/logs
+    ports:
+      - "127.0.0.1:8081:8080"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8080/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 15
+      start_period: 30s
+
+  airflow-scheduler:
+    build:
+      context: .
+      dockerfile: infra/airflow/Dockerfile
+    container_name: airflow-scheduler
+    restart: unless-stopped
+    networks: [bluesky-net]
+    user: "${AIRFLOW_UID}:0"
+    depends_on:
+      airflow-init:
+        condition: service_completed_successfully
+    environment: *airflow-common-env
+    command: airflow scheduler
+    mem_limit: ${AIRFLOW_MEMORY_LIMIT}
+    volumes:
+      - ./orchestration/dags:/opt/airflow/dags
+      - ./transformation:/opt/airflow/transformation
+      - airflow_logs:/opt/airflow/logs
+    healthcheck:
+      test: ["CMD-SHELL", "airflow jobs check --job-type SchedulerJob --hostname \"$$(hostname)\""]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+      start_period: 30s
+
+  # ============================ Serving layer ===============================
+
+  dbt-docs:
+    build:
+      context: .
+      dockerfile: infra/airflow/Dockerfile
+    container_name: dbt-docs
+    restart: unless-stopped
+    networks: [bluesky-net]
+    user: "${AIRFLOW_UID}:0"
+    depends_on:
+      warehouse-db:
+        condition: service_healthy
+    env_file: .env
+    environment:
+      DBT_PROFILES_DIR: /opt/airflow/transformation
+    working_dir: /opt/airflow/transformation
+    entrypoint: ["/bin/bash", "-c"]
+    command:
+      - "dbt docs generate && dbt docs serve --host 0.0.0.0 --port 8088"
+    volumes:
+      - ./transformation:/opt/airflow/transformation
+    ports:
+      - "127.0.0.1:8088:8088"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8088 || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+
+  grafana:
+    image: grafana/grafana:11.0.0
+    container_name: grafana
+    restart: unless-stopped
+    networks: [bluesky-net]
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD}
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./serving/grafana/datasources.yml:/etc/grafana/provisioning/datasources/datasources.yml:ro
+      - ./serving/grafana/dashboards.yml:/etc/grafana/provisioning/dashboards/dashboards.yml:ro
+      - ./serving/grafana:/var/lib/grafana/dashboards:ro
+    ports:
+      - "127.0.0.1:3000:3000"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:3000/api/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 15s

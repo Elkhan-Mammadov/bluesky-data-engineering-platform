@@ -75,7 +75,7 @@ logs: ## Show logs for one service, e.g. make logs service=ingestor
 # ---- Stage 3-6: Airflow DAG equivalents ----
 
 start-ingestion: ## Equivalent of DAG 01_start_ingestion
-	@echo "make start-ingestion: implemented in Stage 3 (Ingestion)"
+	docker compose exec airflow-scheduler airflow dags trigger 01_start_ingestion
 
 start-cdc: ## Equivalent of DAG 02_start_cdc_kafka
 	@echo "make start-cdc: implemented in Stage 4 (CDC & Kafka)"
@@ -87,7 +87,7 @@ run-dbt: ## Equivalent of DAG 04_dbt_transform
 	@echo "make run-dbt: implemented in Stage 6 (dbt)"
 
 stop-ingestion: ## Equivalent of DAG 05_stop_ingestion
-	@echo "make stop-ingestion: implemented in Stage 3 (Ingestion)"
+	docker compose exec airflow-scheduler airflow dags trigger 05_stop_ingestion
 
 reset-demo: ## Run reset_demo.sh
 	@bash scripts/reset_demo.sh

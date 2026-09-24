@@ -5,11 +5,11 @@ Jetstream** feed and turns it into a live analytics dashboard: activity
 trends, trending hashtags, user segments and bot-like account detection -
 all refreshed every 5 seconds.
 
-> Current status: **Stage 2 - Infrastructure.** `docker-compose.yml` brings
-> up all 17 services (databases, Kafka, Spark cluster, Airflow, Grafana,
-> dbt-docs) in a healthy state; `make up` / `make health` / `make restart`
-> work end to end. No business logic runs yet - the ingestor, Spark job
-> and dbt models are still placeholders, built in Stages 3-6. See
+> Current status: **Stage 3 - Ingestion.** The ingestor really connects to
+> Bluesky Jetstream (or the simulator), hashes/samples users and writes to
+> `source-db` every 5 seconds; `make start-ingestion` / `make stop-ingestion`
+> (DAGs 01/05) turn the flow on and off. CDC, Spark streaming, dbt and
+> Grafana are still placeholders, built in Stages 4-7. See
 > `docs/PROJECT_PLAN.md` section 8 for the full roadmap.
 
 ## Purpose

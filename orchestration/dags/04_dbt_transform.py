@@ -1,10 +1,9 @@
 """DAG 04: dbt_transform.
 
 Runs on a schedule (DBT_RUN_INTERVAL_MINUTES, default 5 minutes):
-dbt snapshot, then dbt run, then dbt test. If tests fail, the DAG fails and
-marts are not refreshed.
-
-Full task logic lands in Stage 6 (dbt).
+dbt source freshness (warns only, never fails the DAG), then dbt snapshot,
+dbt run, and dbt test. If tests fail, the DAG fails and marts are not
+refreshed.
 """
 
 from __future__ import annotations
@@ -33,6 +32,12 @@ with DAG(
     # its dependencies never collide with Airflow's own.
     DBT_BIN = "/home/airflow/dbt_venv/bin/dbt"
 
+    # dbt source freshness only warns (warn_after is set, error_after is
+    # not - see models/staging/_sources.yml), so this never fails the DAG.
+    source_freshness = BashOperator(
+        task_id="dbt_source_freshness",
+        bash_command="cd " + DBT_PROJECT_DIR + " && " + DBT_BIN + " source freshness || true",
+    )
     snapshot = BashOperator(
         task_id="dbt_snapshot",
         bash_command="cd " + DBT_PROJECT_DIR + " && " + DBT_BIN + " snapshot",
@@ -45,4 +50,4 @@ with DAG(
         task_id="dbt_test",
         bash_command="cd " + DBT_PROJECT_DIR + " && " + DBT_BIN + " test",
     )
-    snapshot >> run >> test
+    source_freshness >> snapshot >> run >> test

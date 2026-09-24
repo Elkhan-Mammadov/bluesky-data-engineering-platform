@@ -1,9 +1,7 @@
 """DAG 05: stop_ingestion.
 
 On demand. Turns off control.pipeline_switches.ingestion_enabled so the
-ingestor idles and source-db growth stops.
-
-Full task logic lands in Stage 3 (Ingestion).
+ingestor idles (stays connected, stops writing) and source-db growth stops.
 """
 
 from __future__ import annotations
@@ -13,17 +11,20 @@ from datetime import datetime
 from airflow import DAG
 from airflow.operators.python import PythonOperator
 
+import _common
+
+DAG_ID = "05_stop_ingestion"
+
 default_args = {"owner": "bluesky-platform", "retries": 2}
 
 
 def disable_ingestion() -> None:
-    """TODO (Stage 3): UPDATE control.pipeline_switches SET
-    ingestion_enabled = false."""
-    raise NotImplementedError("Implemented in Stage 3 (Ingestion)")
+    _common.set_switch("ingestion_enabled", False)
+    _common.log_pipeline_run(DAG_ID, "disable_ingestion", "success")
 
 
 with DAG(
-    dag_id="05_stop_ingestion",
+    dag_id=DAG_ID,
     description="Turn off ingestion",
     schedule=None,
     start_date=datetime(2026, 1, 1),

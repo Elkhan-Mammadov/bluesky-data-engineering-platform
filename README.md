@@ -5,11 +5,12 @@ Jetstream** feed and turns it into a live analytics dashboard: activity
 trends, trending hashtags, user segments and bot-like account detection -
 all refreshed every 5 seconds.
 
-> Current status: **Stage 4 - CDC & Kafka.** `make start-cdc` (DAG 02)
-> registers the real Debezium connector and confirms it reaches RUNNING -
-> every insert/update/delete in `source-db` now streams into its own Kafka
-> topic, with a DLQ for anything malformed. Spark streaming, dbt and
-> Grafana are still placeholders, built in Stages 5-7. See
+> Current status: **Stage 5 - Spark streaming.** `make start-spark` (DAG 03)
+> turns on the real Spark Structured Streaming job: every 5 seconds it
+> cleans the CDC stream, upserts into `warehouse-db`'s `raw` schema,
+> quarantines anything invalid instead of stopping, and updates the
+> `realtime` per-minute aggregates Grafana will read from. dbt and Grafana
+> are still placeholders, built in Stages 6-7. See
 > `docs/PROJECT_PLAN.md` section 8 for the full roadmap.
 
 ## Purpose

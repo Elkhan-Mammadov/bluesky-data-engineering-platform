@@ -78,7 +78,7 @@ start-ingestion: ## Equivalent of DAG 01_start_ingestion
 	docker compose exec airflow-scheduler airflow dags trigger 01_start_ingestion
 
 start-cdc: ## Equivalent of DAG 02_start_cdc_kafka
-	@echo "make start-cdc: implemented in Stage 4 (CDC & Kafka)"
+	docker compose exec airflow-scheduler airflow dags trigger 02_start_cdc_kafka
 
 start-spark: ## Equivalent of DAG 03_start_spark_streaming
 	@echo "make start-spark: implemented in Stage 5 (Spark streaming)"

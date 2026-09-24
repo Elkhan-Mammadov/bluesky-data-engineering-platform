@@ -347,6 +347,8 @@ services:
     volumes:
       - ./orchestration/dags:/opt/airflow/dags
       - ./transformation:/opt/airflow/transformation
+      # DAG 02 reads the Debezium connector template from here.
+      - ./ingestion/cdc:/opt/airflow/cdc:ro
       - airflow_logs:/opt/airflow/logs
     healthcheck:
       test: ["CMD-SHELL", "airflow jobs check --job-type SchedulerJob --hostname \"$$(hostname)\""]

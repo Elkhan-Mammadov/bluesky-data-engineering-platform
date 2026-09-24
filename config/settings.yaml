@@ -1,0 +1,87 @@
+# ==============================================================================
+# Shared configuration for the ingestor and the simulator.
+# Loaded by ingestion/common/config.py. Values here are NOT secret; secrets
+# (passwords, salt) live only in .env.
+# ==============================================================================
+
+# ---------------------------------------------------------------------------
+# Jetstream connection (verified against https://github.com/bluesky-social/jetstream)
+# ---------------------------------------------------------------------------
+jetstream:
+  # Public Jetstream v1 instances. The client tries them in order and fails
+  # over to the next one on disconnect (see ingestion/jetstream/client.py).
+  hosts:
+    - "wss://jetstream1.us-east.bsky.network/subscribe"
+    - "wss://jetstream2.us-east.bsky.network/subscribe"
+    - "wss://jetstream1.us-west.bsky.network/subscribe"
+    - "wss://jetstream2.us-west.bsky.network/subscribe"
+
+  # Reconnect backoff (seconds): starts small, doubles up to max_seconds.
+  reconnect_backoff:
+    initial_seconds: 1
+    max_seconds: 60
+    multiplier: 2
+
+# ---------------------------------------------------------------------------
+# Event types we track and their Jetstream collection NSIDs.
+# The ingestor passes these as repeated `wantedCollections` query parameters
+# so Jetstream only sends us the slice of the firehose we care about.
+# ---------------------------------------------------------------------------
+tracked_collections:
+  post: "app.bsky.feed.post"
+  like: "app.bsky.feed.like"
+  repost: "app.bsky.feed.repost"
+  follow: "app.bsky.graph.follow"
+  block: "app.bsky.graph.block"
+  profile_update: "app.bsky.actor.profile"
+
+# ---------------------------------------------------------------------------
+# Sampling
+# ---------------------------------------------------------------------------
+sampling:
+  # Overridable by SAMPLING_RATE in .env. Kept here as the documented default.
+  default_rate: 0.10
+  # Hash algorithm used on (salt + user_did) to decide sampling and hashed id.
+  hash_algorithm: "sha256"
+
+# ---------------------------------------------------------------------------
+# Ingestor write behaviour
+# ---------------------------------------------------------------------------
+ingestor:
+  write_interval_seconds: 5
+  status_api_port: 8000
+  # How often (seconds) to poll control.pipeline_switches.ingestion_enabled
+  switch_poll_interval_seconds: 5
+
+# ---------------------------------------------------------------------------
+# Simulator (fallback data source, same event shape as Jetstream)
+# ---------------------------------------------------------------------------
+simulator:
+  api_port: 8001
+  events_per_second: 20
+  # Fraction of generated events that are intentionally malformed, so the
+  # Spark cleaning stage (stage 5) has real quarantine cases to catch.
+  dirty_record_rate: 0.05
+  dirty_record_types:
+    - missing_required_field
+    - duplicate_event
+    - future_timestamp
+    - unknown_event_type
+  # After this many seconds, the simulator starts adding one extra,
+  # previously-unseen field to new events (schema drift scenario).
+  schema_drift_after_seconds: 300
+  # Fraction of simulated accounts that behave like bots
+  # (hundreds of follows/likes per minute).
+  bot_account_rate: 0.01
+  bot_actions_per_minute: 200
+
+# ---------------------------------------------------------------------------
+# Text-derived fields only (raw post text/handles/avatars are never stored,
+# see docs/PRIVACY.md).
+# ---------------------------------------------------------------------------
+text_features:
+  detect_language: true
+  extract_hashtags: true
+  flag_has_link: true
+  flag_has_media: true
+  flag_is_reply: true

@@ -5,11 +5,11 @@ Jetstream** feed and turns it into a live analytics dashboard: activity
 trends, trending hashtags, user segments and bot-like account detection -
 all refreshed every 5 seconds.
 
-> Current status: **Stage 3 - Ingestion.** The ingestor really connects to
-> Bluesky Jetstream (or the simulator), hashes/samples users and writes to
-> `source-db` every 5 seconds; `make start-ingestion` / `make stop-ingestion`
-> (DAGs 01/05) turn the flow on and off. CDC, Spark streaming, dbt and
-> Grafana are still placeholders, built in Stages 4-7. See
+> Current status: **Stage 4 - CDC & Kafka.** `make start-cdc` (DAG 02)
+> registers the real Debezium connector and confirms it reaches RUNNING -
+> every insert/update/delete in `source-db` now streams into its own Kafka
+> topic, with a DLQ for anything malformed. Spark streaming, dbt and
+> Grafana are still placeholders, built in Stages 5-7. See
 > `docs/PROJECT_PLAN.md` section 8 for the full roadmap.
 
 ## Purpose

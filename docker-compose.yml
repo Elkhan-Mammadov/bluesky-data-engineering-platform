@@ -187,6 +187,8 @@ services:
     depends_on:
       source-db:
         condition: service_healthy
+      warehouse-db:
+        condition: service_healthy
     ports:
       - "127.0.0.1:8000:8000"
 
@@ -283,6 +285,8 @@ services:
     depends_on:
       airflow-metadata-db:
         condition: service_healthy
+    # SOURCE_DB_*/WAREHOUSE_DB_* here are read by orchestration/dags/_common.py
+    env_file: .env
     environment: &airflow-common-env
       AIRFLOW__CORE__EXECUTOR: LocalExecutor
       AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://${AIRFLOW_DB_USER}:${AIRFLOW_DB_PASSWORD}@airflow-metadata-db:5432/${AIRFLOW_DB_NAME}
@@ -308,6 +312,7 @@ services:
     depends_on:
       airflow-init:
         condition: service_completed_successfully
+    env_file: .env
     environment: *airflow-common-env
     command: airflow webserver
     mem_limit: ${AIRFLOW_MEMORY_LIMIT}
@@ -335,6 +340,7 @@ services:
     depends_on:
       airflow-init:
         condition: service_completed_successfully
+    env_file: .env
     environment: *airflow-common-env
     command: airflow scheduler
     mem_limit: ${AIRFLOW_MEMORY_LIMIT}

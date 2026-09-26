@@ -11,6 +11,7 @@
         unique_key='user_id_hash',
         strategy='check',
         check_cols=['segment', 'main_language'],
+        target_schema='snapshots',
     )
 }}
 

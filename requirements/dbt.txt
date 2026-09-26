@@ -1,2 +1,10 @@
 # Pinned dependencies for dbt transformations
+#
+# dbt-core is pinned explicitly, not left to dbt-postgres's own dependency
+# resolution: dbt Labs shipped a new major "dbt v2 / dbt-oss" line that an
+# unpinned install can resolve to instead, and that new line does not
+# support the postgres adapter yet ("Configuration Error: The 'postgres'
+# adapter is not yet supported by dbt"). Pinning the exact 1.8.2 release
+# keeps us on the classic dbt-core + dbt-postgres architecture.
+dbt-core==1.8.2
 dbt-postgres==1.8.2

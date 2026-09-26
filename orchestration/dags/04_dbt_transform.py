@@ -1,9 +1,18 @@
 """DAG 04: dbt_transform.
 
 Runs on a schedule (DBT_RUN_INTERVAL_MINUTES, default 5 minutes):
-dbt source freshness (warns only, never fails the DAG), then dbt snapshot,
-dbt run, and dbt test. If tests fail, the DAG fails and marts are not
-refreshed.
+dbt source freshness (warns only, never fails the DAG), then a two-phase
+run/snapshot/run, then dbt test. If tests fail, the DAG fails and marts
+are not refreshed.
+
+Why two `dbt run` phases: marts.dim_user is built FROM the
+dim_user_snapshot snapshot, but that snapshot's own source
+(intermediate.int_user_activity_summary) only exists after `dbt run` has
+built it. Running `dbt snapshot` before any `dbt run` fails on a fresh
+warehouse ("relation intermediate.int_user_activity_summary does not
+exist"). So: run everything except dim_user, then snapshot (its source
+now exists), then run just dim_user (its source, the snapshot, now
+exists too).
 """
 
 from __future__ import annotations
@@ -38,16 +47,20 @@ with DAG(
         task_id="dbt_source_freshness",
         bash_command="cd " + DBT_PROJECT_DIR + " && " + DBT_BIN + " source freshness || true",
     )
+    run_before_snapshot = BashOperator(
+        task_id="dbt_run_before_snapshot",
+        bash_command="cd " + DBT_PROJECT_DIR + " && " + DBT_BIN + " run --exclude dim_user",
+    )
     snapshot = BashOperator(
         task_id="dbt_snapshot",
         bash_command="cd " + DBT_PROJECT_DIR + " && " + DBT_BIN + " snapshot",
     )
-    run = BashOperator(
-        task_id="dbt_run",
-        bash_command="cd " + DBT_PROJECT_DIR + " && " + DBT_BIN + " run",
+    run_dim_user = BashOperator(
+        task_id="dbt_run_dim_user",
+        bash_command="cd " + DBT_PROJECT_DIR + " && " + DBT_BIN + " run --select dim_user",
     )
     test = BashOperator(
         task_id="dbt_test",
         bash_command="cd " + DBT_PROJECT_DIR + " && " + DBT_BIN + " test",
     )
-    source_freshness >> snapshot >> run >> test
+    source_freshness >> run_before_snapshot >> snapshot >> run_dim_user >> test

@@ -11,8 +11,8 @@ echo
 
 all_healthy=true
 
-for service in $(docker compose ps --services); do
-    container_id=$(docker compose ps -q "$service")
+for service in $(docker compose ps --services --all); do
+    container_id=$(docker compose ps -q --all "$service")
 
     if [ -z "$container_id" ]; then
         printf "  %-20s %s\n" "$service" "NOT RUNNING"

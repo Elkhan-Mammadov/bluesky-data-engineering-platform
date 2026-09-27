@@ -1,4 +1,9 @@
-.PHONY: env venv up up-infra up-stream up-orchestration up-serving down restart clean         ps health status logs urls tunnel start-ingestion start-cdc start-spark run-dbt         stop-ingestion reset-demo test lint
+.PHONY: help env venv up up-infra up-stream up-orchestration up-serving down restart clean         ps health status logs urls tunnel start-ingestion start-cdc start-spark run-dbt         stop-ingestion reset-demo test lint
+
+.DEFAULT_GOAL := help
+
+help: ## Show this list of commands
+	@grep -E '^[a-zA-Z0-9_-]+:.*##' Makefile | sort | sed -E 's/:[^#]*## / - /'
 
 # ---- Stage 1 (Skeleton & docs): usable today, no infra required ----
 
@@ -84,7 +89,7 @@ start-spark: ## Equivalent of DAG 03_start_spark_streaming
 	docker compose exec airflow-scheduler airflow dags trigger 03_start_spark_streaming
 
 run-dbt: ## Equivalent of DAG 04_dbt_transform
-	@echo "make run-dbt: implemented in Stage 6 (dbt)"
+	docker compose exec airflow-scheduler airflow dags trigger 04_dbt_transform
 
 stop-ingestion: ## Equivalent of DAG 05_stop_ingestion
 	docker compose exec airflow-scheduler airflow dags trigger 05_stop_ingestion

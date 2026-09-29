@@ -1,0 +1,68 @@
+name: CI
+
+# Phase 1 requirement (minimal CI): on every PR, run lint/formatting
+# checks, a compile check of every pipeline module, unit tests, and
+# validate the infrastructure definition. The full integration smoke
+# test (make smoke) needs real running services and is intentionally
+# NOT run here - see docs/evidence/phase-1.md for a manual run's output.
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  lint-and-compile:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install ruff
+        run: pip install ruff==0.5.0
+
+      - name: Lint (ruff)
+        run: ruff check .
+
+      - name: Compile-check every pipeline module
+        run: python -m compileall -q ingestion streaming orchestration transformation tests
+
+  unit-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install lightweight test dependencies
+        # Only what tests/ actually imports at collection time - not the
+        # full requirements/dev.txt (pyspark/airflow/dbt aren't needed to
+        # run these pure-logic unit tests, and installing them would make
+        # CI slow for no benefit).
+        run: pip install pytest==8.2.2 Faker==24.14.0 PyYAML==6.0.1 python-dotenv==1.0.1
+
+      - name: Run unit tests
+        # tests/smoke needs real running services (docker compose) and psycopg2 -
+        # deliberately excluded here, see docs/evidence/phase-1.md for a manual run.
+        run: pytest tests/ -v --ignore=tests/smoke
+
+  validate-infra:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Create .env from .env.example for validation
+        run: cp .env.example .env
+
+      - name: Validate docker-compose.yml
+        run: docker compose config --quiet

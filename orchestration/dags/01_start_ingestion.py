@@ -3,10 +3,18 @@
 Manually triggered, once. Turns on control.pipeline_switches.ingestion_enabled
 so the ingestor starts writing to source-db, then self-checks that the
 ingestion_cursor actually advanced (i.e. new events were really written).
+
+Deliberate-failure demo (Phase 1 requirement): set FORCE_INGESTION_FAILURE=true
+to make enable_ingestion() raise instead of flipping the switch, e.g.:
+    docker compose exec -e FORCE_INGESTION_FAILURE=true airflow-scheduler \
+        airflow dags trigger 01_start_ingestion
+The downstream check_source_db_growth task then shows "upstream_failed"
+and the whole DAG run is marked failed - see docs/RUNBOOK.md.
 """
 
 from __future__ import annotations
 
+import os
 import time
 from datetime import datetime
 
@@ -26,6 +34,14 @@ default_args = {
 
 
 def enable_ingestion() -> None:
+    if os.environ.get("FORCE_INGESTION_FAILURE", "false").lower() == "true":
+        _common.log_pipeline_run(
+            DAG_ID, "enable_ingestion", "failed", "FORCE_INGESTION_FAILURE=true (deliberate demo failure)"
+        )
+        raise RuntimeError(
+            "Deliberate failure: FORCE_INGESTION_FAILURE=true is set. "
+            "Unset it (or omit -e) to run normally."
+        )
     _common.set_switch("ingestion_enabled", True)
     _common.log_pipeline_run(DAG_ID, "enable_ingestion", "success")
 

@@ -1,4 +1,4 @@
-.PHONY: help env venv up up-infra up-stream up-orchestration up-serving down restart clean         ps health status logs urls tunnel start-ingestion start-cdc start-spark run-dbt         stop-ingestion reset-demo test lint
+.PHONY: help env venv up up-infra up-stream up-orchestration up-serving down restart clean         ps health status logs urls tunnel start-ingestion start-cdc start-spark run-dbt         stop-ingestion reset-demo test lint smoke kafka-test
 
 .DEFAULT_GOAL := help
 
@@ -17,10 +17,16 @@ venv: ## Create a local Python virtual environment with all dependencies
 	@echo "Run 'source .venv/bin/activate' to use it."
 
 test: ## Run the unit test suite
-	python3 -m pytest tests/
+	python3 -m pytest tests/ --ignore=tests/smoke
 
 lint: ## Run the linter
 	python3 -m ruff check .
+
+smoke: ## Run the Phase 1 integration smoke test against the real running stack
+	@bash -c "set -a && source .env && set +a && python3 -m pytest tests/smoke -v"
+
+kafka-test: ## Round-trip a message through Kafka to prove connectivity
+	@bash scripts/kafka_connectivity_test.sh
 
 urls: ## Print all UI links
 	@echo "Ingestor status  : http://localhost:8000/docs"

@@ -23,7 +23,7 @@ lint: ## Run the linter
 	python3 -m ruff check .
 
 smoke: ## Run the Phase 1 integration smoke test against the real running stack
-	@bash -c "set -a && source .env && set +a && python3 -m pytest tests/smoke -v"
+	@bash -c "set -a && source .env && set +a && python3 -m pytest tests/smoke -v -s"
 
 kafka-test: ## Round-trip a message through Kafka to prove connectivity
 	@bash scripts/kafka_connectivity_test.sh

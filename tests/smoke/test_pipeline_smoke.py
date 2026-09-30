@@ -146,6 +146,7 @@ def test_orchestrator_run_succeeded():
          "airflow", "dags", "state", PIPELINE_DAG_ID, LOGICAL_DATE],
         capture_output=True, text=True, timeout=120, check=True,
     )
-    state = result.stdout.strip().splitlines()[-1].strip()
+    # Last line is the state, followed by ", <conf>" if the run has a conf.
+    state = result.stdout.strip().splitlines()[-1].split(",")[0].strip()
     print(f"\n[smoke] Airflow run state of {PIPELINE_DAG_ID} for {LOGICAL_DATE}: {state}")
     assert state == "success", f"{PIPELINE_DAG_ID} run for {LOGICAL_DATE} is '{state}', expected 'success'"

@@ -38,8 +38,9 @@ airflow() {
 }
 
 run_state() {
-    # `airflow dags state` prints log lines first; the state is the last line.
-    airflow dags state "$DAG_ID" "$DATE" 2>/dev/null | tail -n 1 | tr -d '\r'
+    # `airflow dags state` prints log lines first; the state is the last
+    # line, followed by ", <conf>" when the run has a conf.
+    airflow dags state "$DAG_ID" "$DATE" 2>/dev/null | tail -n 1 | tr -d '\r' | cut -d, -f1
 }
 
 echo "[run_pipeline] logical date: $DATE"

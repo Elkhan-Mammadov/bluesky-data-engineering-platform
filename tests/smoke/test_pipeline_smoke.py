@@ -99,12 +99,23 @@ def test_row_counts_reconcile_and_orchestrator_run_succeeded():
             ("07_daily_batch_report",),
         )
 
+    lag = raw_count - marts_count
     print(
         "[smoke] row counts -> "
-        f"raw.posts={raw_count} staging.stg_posts={staging_count} marts.fct_posts={marts_count}"
+        f"raw.posts={raw_count} staging.stg_posts={staging_count} marts.fct_posts={marts_count} "
+        f"(marts lag: {lag} rows - explained below)"
     )
-    # stg_posts.sql and fct_posts.sql apply no filtering on top of raw.posts
-    # in this project, so these three should reconcile exactly.
+    # staging.stg_posts is a VIEW with no filtering over raw.posts, so it
+    # always reflects the exact same live count.
     assert staging_count == raw_count, "staging.stg_posts should mirror raw.posts exactly"
-    assert marts_count == raw_count, "marts.fct_posts should mirror raw.posts exactly"
+    # marts.fct_posts is a materialized TABLE, only refreshed when dbt runs
+    # (DAG 04, every DBT_RUN_INTERVAL_MINUTES). Ingestion keeps writing to
+    # raw.posts continuously in between runs, so marts can only ever be
+    # <= raw at this instant, lagging by however many rows arrived since
+    # the last dbt run - never more, never a mismatch in the other
+    # direction (fct_posts.sql applies no filtering either).
+    assert marts_count <= raw_count, (
+        "marts.fct_posts has MORE rows than raw.posts - that should be impossible "
+        "since fct_posts.sql applies no filtering on top of stg_posts"
+    )
     assert successful_batch_runs > 0, "no successful 07_daily_batch_report run found in dq.pipeline_runs"

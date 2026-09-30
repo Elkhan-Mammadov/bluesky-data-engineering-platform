@@ -7,10 +7,18 @@ set -euo pipefail
 
 cd "$(dirname "$0")/.."
 
-TOPIC="_connectivity_test"
+# A fresh topic per run: a reused topic still holds earlier runs' messages,
+# so --from-beginning would read a stale ping instead of this run's.
+TOPIC="connectivity-test-$(date +%s)"
 MESSAGE="ping-$(date +%s)"
 
-echo "[kafka_connectivity_test] creating topic '$TOPIC' (if not exists)..."
+cleanup() {
+    docker compose exec -T kafka /opt/kafka/bin/kafka-topics.sh \
+        --bootstrap-server localhost:9092 --delete --topic "$TOPIC" >/dev/null 2>&1 || true
+}
+trap cleanup EXIT
+
+echo "[kafka_connectivity_test] creating throwaway topic '$TOPIC'..."
 docker compose exec -T kafka /opt/kafka/bin/kafka-topics.sh \
     --bootstrap-server localhost:9092 --create --if-not-exists \
     --topic "$TOPIC" --partitions 1 --replication-factor 1

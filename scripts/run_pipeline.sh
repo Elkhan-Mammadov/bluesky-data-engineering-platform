@@ -53,6 +53,13 @@ if [ "$existing" != "None" ]; then
     fi
     echo "[run_pipeline] run for $DATE exists ($existing) - clearing it to re-run"
     airflow tasks clear "$DAG_ID" -s "$DATE" -e "$DATE" -y >/dev/null 2>&1
+    # Clearing only matches the DAG's current tasks. A run created by an
+    # older version of this DAG has none of them, so nothing is cleared.
+    if [ "$(run_state)" = "$existing" ]; then
+        echo "[run_pipeline] nothing was cleared - the $DATE run was made by an older version of $DAG_ID." >&2
+        echo "[run_pipeline] remove the old runs with: docker compose exec airflow-scheduler airflow dags delete $DAG_ID -y" >&2
+        exit 1
+    fi
 elif [ -n "$CONF" ]; then
     echo "[run_pipeline] triggering with conf $CONF"
     airflow dags trigger "$DAG_ID" -e "$DATE" -c "$CONF" >/dev/null 2>&1

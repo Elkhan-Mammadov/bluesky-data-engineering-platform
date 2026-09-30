@@ -36,6 +36,10 @@ with DAG(
     schedule=timedelta(minutes=INTERVAL_MINUTES),
     start_date=datetime(2026, 1, 1),
     catchup=False,
+    # A run can outlast the interval (e.g. dbt_test failing, then retrying);
+    # overlapping runs once ran two `dbt snapshot`s at the same moment and
+    # left users with two current SCD2 rows (scripts/repair_scd2_duplicates.sql).
+    max_active_runs=1,
     default_args=default_args,
     tags=["dbt"],
 ) as dag:

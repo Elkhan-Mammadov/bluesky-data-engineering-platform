@@ -348,4 +348,11 @@ before/after results, and `docs/DEMO.md` for the presentation script.
   and waits for the result. The smoke test now checks each layer for the
   date, queries Grafana's API and reads Airflow's own run state. See the
   ADR update of the same date.
+- **2026-09-30: fix for duplicate SCD2 rows.** On 2026-09-26, two `dbt snapshot`
+  runs overlapped by 3 seconds. After that, some users had two current rows in
+  `snapshots.dim_user_snapshot`, and each later change multiplied them in
+  pairs. `assert_one_current_row_per_user` then failed DAG 04 on every run.
+  Prevention: DAGs 04 and 07 share a one-slot `dbt` pool, and DAG 04 has
+  `max_active_runs=1`. The existing rows were repaired once with
+  `scripts/repair_scd2_duplicates.sql`, which keeps the history.
 

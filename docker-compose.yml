@@ -306,7 +306,8 @@ services:
     command: >
       bash -c "airflow db migrate &&
       airflow users create --username ${AIRFLOW_ADMIN_USER} --password ${AIRFLOW_ADMIN_PASSWORD}
-      --firstname Admin --lastname User --role Admin --email admin@example.com || true"
+      --firstname Admin --lastname User --role Admin --email admin@example.com || true;
+      airflow pools set dbt 1 'One dbt invocation at a time (DAGs 04 and 07)'"
     volumes:
       - airflow_logs:/opt/airflow/logs
 

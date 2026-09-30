@@ -18,7 +18,7 @@ from __future__ import annotations
 
 import os
 import time
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from airflow import DAG
 from airflow.exceptions import AirflowFailException
@@ -33,6 +33,7 @@ GROWTH_CHECK_WAIT_SECONDS = 15
 default_args = {
     "owner": "bluesky-platform",
     "retries": 2,
+    "retry_delay": timedelta(minutes=1),
 }
 
 
@@ -41,7 +42,7 @@ def enable_ingestion() -> None:
         _common.log_pipeline_run(
             DAG_ID, "enable_ingestion", "failed", "FORCE_INGESTION_FAILURE=true (deliberate demo failure)"
         )
-        # AirflowFailException skips the 2 retries (5 min apart) - retrying a
+        # AirflowFailException skips the 2 retries - retrying a
         # forced failure can only fail again.
         raise AirflowFailException(
             "Deliberate failure: FORCE_INGESTION_FAILURE=true is set. "

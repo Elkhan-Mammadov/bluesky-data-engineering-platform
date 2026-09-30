@@ -326,3 +326,26 @@ make urls     # print every UI link
 Then open `localhost:3000` for the Grafana dashboard. See
 `docs/RUNBOOK.md` for the full step-by-step scenario with expected
 before/after results, and `docs/DEMO.md` for the presentation script.
+
+## 11. Changelog
+
+- **2026-09-29: batch slice added (Phase 1).** Added DAG `07_daily_batch_report`,
+  the smoke test (`make smoke`), the Kafka connectivity test (`make kafka-test`),
+  CI and a deliberate-failure switch. The reason: the Phase 1 rubric requires a
+  pipeline parameterized by logical date, and the streaming design has no date
+  partitions. See ADR `docs/decisions/0001-streaming-vs-batch-architecture.md`.
+- **2026-09-30: fixes from running Phase 1 on the real server.**
+  - The smoke test now allows marts to trail raw on a live stream.
+  - `make kafka-test` uses a fresh topic each run. A reused topic returned a
+    ping left over from an earlier run.
+  - The failure demo uses `airflow dags test`, and the forced failure no
+    longer retries. Retries had masked the failure.
+- **2026-09-30: DAG 07 is now the full end-to-end pipeline.** One DAG carries a
+  logical date through ingest, raw, dbt, quality and publish, one task per
+  stage. It replaces the thin marts-to-marts slice and the manual DAG
+  01-04 sequence. Each task logs its input, output and row counts. The
+  failure switch moved to the run's conf. `make pipeline` runs the DAG
+  and waits for the result. The smoke test now checks each layer for the
+  date, queries Grafana's API and reads Airflow's own run state. See the
+  ADR update of the same date.
+

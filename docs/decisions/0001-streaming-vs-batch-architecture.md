@@ -58,3 +58,37 @@ logical-date requirement, kept deliberately separate from the streaming DAGs:
 - If a future requirement needs the *entire* warehouse to be date-partitioned, that would be a
   larger architectural change (effectively moving away from continuous streaming) and would
   warrant its own ADR - it is out of scope here.
+
+## Update (2026-09-30): DAG 07 became the full end-to-end pipeline
+
+A check of the Phase 1 rubric showed that the version of DAG `07` above was
+too thin. It read `marts` and wrote `marts`, so it touched only one hop.
+The streaming path also needed DAGs `01`-`04` triggered by hand in
+sequence, which a reviewer could fairly read as manual steps between
+stages. The rubric requires one pipeline, parameterized by logical date,
+with a separate task for each stage.
+
+DAG `07_daily_batch_report` now carries one logical date through every
+component, with explicit dependencies:
+`start_ingestion -> start_cdc -> start_spark -> check_source_partition ->
+load_raw_partition -> dbt_run_before_snapshot -> dbt_snapshot ->
+dbt_run_dim_user -> dbt_test -> check_partition_quality -> publish_daily_summary`.
+
+The core decision above still stands. The data path stays continuous and
+is not reprocessed per date. The component-starting tasks are idempotent,
+and on a stack that is already running they are no-ops. The per-date
+tasks prove that the date's partition reached source-db and then `raw.*`,
+with counts reconciled against a source snapshot. They then rebuild
+staging and marts, check the partition, and publish it. The rest is
+unchanged: `raw.*` is upserted on natural keys, dbt rebuilds its models,
+and the summary uses delete-then-insert. A re-run therefore never
+duplicates, and two dates never overwrite each other.
+
+Also changed alongside:
+- The deliberate-failure switch is read from the run's conf. An
+  environment variable passed to `airflow dags trigger` never reaches the
+  scheduler process that runs the task. The forced failure raises
+  `AirflowFailException`, so it does not retry.
+- The dbt tasks of DAGs `04` and `07` share a one-slot `dbt` pool. Two
+  concurrent `dbt run`s swapping the same tables fail.
+

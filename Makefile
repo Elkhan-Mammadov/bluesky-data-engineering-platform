@@ -1,4 +1,4 @@
-.PHONY: help env venv up up-infra up-stream up-orchestration up-serving down restart clean         ps health status logs urls tunnel start-ingestion start-cdc start-spark run-dbt         stop-ingestion reset-demo test lint smoke kafka-test
+.PHONY: help env venv up up-infra up-stream up-orchestration up-serving down restart clean         ps health status logs urls tunnel start-ingestion start-cdc start-spark run-dbt         stop-ingestion reset-demo test lint pipeline smoke kafka-test
 
 .DEFAULT_GOAL := help
 
@@ -22,8 +22,11 @@ test: ## Run the unit test suite
 lint: ## Run the linter
 	python3 -m ruff check .
 
-smoke: ## Run the Phase 1 integration smoke test against the real running stack
-	@bash -c "set -a && source .env && set +a && python3 -m pytest tests/smoke -v -s"
+pipeline: ## Run the Phase 1 pipeline for one date, e.g. make pipeline DATE=2026-09-30 (add ARGS=--fail)
+	@bash scripts/run_pipeline.sh $(DATE) $(ARGS)
+
+smoke: ## Run the Phase 1 integration smoke test (SMOKE_LOGICAL_DATE=YYYY-MM-DD, default today)
+	@bash -c "set -a && source .env && set +a && SMOKE_LOGICAL_DATE=$(SMOKE_LOGICAL_DATE) python3 -m pytest tests/smoke -v -s"
 
 kafka-test: ## Round-trip a message through Kafka to prove connectivity
 	@bash scripts/kafka_connectivity_test.sh

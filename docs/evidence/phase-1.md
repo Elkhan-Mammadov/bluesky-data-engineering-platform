@@ -31,11 +31,11 @@ the red/failed task graph in the Airflow UI:
 
 ```bash
 docker compose exec -e FORCE_INGESTION_FAILURE=true airflow-scheduler \
-    airflow dags trigger 01_start_ingestion
+    airflow dags test 01_start_ingestion
 ```
 
 Expected result: task `enable_ingestion` shows `failed` (raises
-`RuntimeError: Deliberate failure: FORCE_INGESTION_FAILURE=true is set...`),
+`AirflowFailException: Deliberate failure: FORCE_INGESTION_FAILURE=true is set...`),
 task `check_source_db_growth` shows `upstream_failed`, and the DAG run
 itself is marked `failed`. Confirm from the CLI first if you like:
 

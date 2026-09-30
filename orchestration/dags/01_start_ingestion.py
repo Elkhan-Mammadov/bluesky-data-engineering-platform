@@ -5,9 +5,11 @@ so the ingestor starts writing to source-db, then self-checks that the
 ingestion_cursor actually advanced (i.e. new events were really written).
 
 Deliberate-failure demo (Phase 1 requirement): set FORCE_INGESTION_FAILURE=true
-to make enable_ingestion() raise instead of flipping the switch, e.g.:
+to make enable_ingestion() fail (no retries) instead of flipping the switch:
     docker compose exec -e FORCE_INGESTION_FAILURE=true airflow-scheduler \
-        airflow dags trigger 01_start_ingestion
+        airflow dags test 01_start_ingestion
+`dags test`, not `dags trigger`: trigger only queues the run, and the task
+then executes in the scheduler's process, which never sees the -e variable.
 The downstream check_source_db_growth task then shows "upstream_failed"
 and the whole DAG run is marked failed - see docs/RUNBOOK.md.
 """
@@ -19,6 +21,7 @@ import time
 from datetime import datetime
 
 from airflow import DAG
+from airflow.exceptions import AirflowFailException
 from airflow.operators.python import PythonOperator
 
 import _common
@@ -38,7 +41,9 @@ def enable_ingestion() -> None:
         _common.log_pipeline_run(
             DAG_ID, "enable_ingestion", "failed", "FORCE_INGESTION_FAILURE=true (deliberate demo failure)"
         )
-        raise RuntimeError(
+        # AirflowFailException skips the 2 retries (5 min apart) - retrying a
+        # forced failure can only fail again.
+        raise AirflowFailException(
             "Deliberate failure: FORCE_INGESTION_FAILURE=true is set. "
             "Unset it (or omit -e) to run normally."
         )

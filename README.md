@@ -160,7 +160,7 @@ make kafka-test
 **Trigger a deliberate failure** (to see failure propagation in Airflow):
 ```bash
 docker compose exec -e FORCE_INGESTION_FAILURE=true airflow-scheduler \
-    airflow dags trigger 01_start_ingestion
+    airflow dags test 01_start_ingestion
 ```
 `enable_ingestion` raises on purpose; `check_source_db_growth` then shows
 `upstream_failed` and the whole run is marked `failed` in the Airflow UI.

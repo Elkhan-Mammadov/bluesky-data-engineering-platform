@@ -268,3 +268,43 @@ Each one is fixed and described in the `docs/PROJECT_PLAN.md` changelog.
   over from an earlier run. Each run now uses a throwaway topic.
 - **Smoke test expected marts to equal raw.** On a live stream they
   don't. The test now checks that marts is at most raw.
+- **Spark Master could not start.** On the shared server another project
+  already binds port 8080, so `spark-master` exited with code 128. Its UI
+  is now published on host port 18080. Inside the network it is still 8080.
+- **dbt-docs unhealthy on a fresh clone.** `.env.example` keeps the image
+  default `AIRFLOW_UID=50000`, so containers could not write into the
+  mounted `transformation/` folder owned by the cloning user. `make env`
+  now sets `AIRFLOW_UID` to the current user on Linux.
+
+## 9. Fresh clone
+
+On 2026-10-06 the repo was cloned into a new folder on the server and
+started only with the README steps, with the default `.env` values. The
+folder name gives Docker a new project, so every volume started empty.
+
+```
+$ git clone --branch fix-fresh-clone-uid <repo-url> bluesky-fresh-test
+$ cd bluesky-fresh-test
+$ make env && make up && make health
+All services are healthy.
+
+$ make pipeline
+[run_pipeline] logical date: 2026-10-06
+[run_pipeline] triggering
+[run_pipeline] 09:40:57 state: queued
+[run_pipeline] 09:42:53 state: running
+[run_pipeline] 09:43:43 state: success
+(all 11 tasks success)
+
+$ make smoke
+[smoke] raw.posts rows for 2026-10-06: 501
+[smoke] staging.stg_posts rows for 2026-10-06: 501
+[smoke] marts.fct_user_daily_activity rows for 2026-10-06: 1050, marts.mart_daily_summary rows: 1
+[smoke] Grafana /api/ds/query -> 1 row(s): [[1791244800000], [385], [1050]]
+[smoke] row counts for 2026-10-06 -> raw.posts=501 staging.stg_posts=501 marts.fct_posts=385 mart_daily_summary.total_posts=385 (marts lag: 116 rows)
+[smoke] Airflow run state of 07_daily_batch_report for 2026-10-06: success
+6 passed in 2.91s
+```
+
+The first run of the fresh stack, from an empty warehouse to a published
+summary, took under 3 minutes.

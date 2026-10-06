@@ -11,11 +11,12 @@ Run with: make smoke                                (today, UTC)
 Prerequisites: the stack is up (`make up`) and the pipeline has run for
 the date (`make pipeline DATE=<date>`).
 
-Connection notes: this test runs on the HOST (outside any container), so
-it uses the *published* ports (warehouse-db 127.0.0.1:5433, Grafana
-127.0.0.1:3000), not the in-network hosts services use. Database names,
-users and passwords come from .env (make smoke loads it); override the
-host side with SMOKE_WAREHOUSE_HOST/SMOKE_WAREHOUSE_PORT/SMOKE_GRAFANA_URL.
+Connection notes: make smoke runs this inside the `smoke` container
+(docker-compose.yml, profile "tools") on the compose network, so the host
+needs nothing but Docker. The container sets SMOKE_WAREHOUSE_HOST/PORT,
+SMOKE_GRAFANA_URL and SMOKE_AIRFLOW_URL to the in-network services; the
+defaults below are the published host ports, for running pytest on the
+host instead. Database names, users and passwords come from .env.
 """
 
 from __future__ import annotations
@@ -23,7 +24,7 @@ from __future__ import annotations
 import base64
 import json
 import os
-import subprocess
+import urllib.parse
 import urllib.request
 from datetime import datetime, timezone
 
@@ -31,6 +32,7 @@ import psycopg2
 
 LOGICAL_DATE = os.environ.get("SMOKE_LOGICAL_DATE") or datetime.now(timezone.utc).date().isoformat()
 GRAFANA_URL = os.environ.get("SMOKE_GRAFANA_URL", "http://localhost:3000").rstrip("/")
+AIRFLOW_URL = os.environ.get("SMOKE_AIRFLOW_URL", "http://localhost:8081").rstrip("/")
 PIPELINE_DAG_ID = "07_daily_batch_report"
 
 
@@ -78,6 +80,11 @@ def test_curated_layer_has_data_for_logical_date():
     assert summary == 1, f"expected exactly one mart_daily_summary row for {LOGICAL_DATE}, got {summary}"
 
 
+def _basic_auth(user_var: str, password_var: str) -> str:
+    credentials = f"{os.environ[user_var]}:{os.environ[password_var]}"
+    return "Basic " + base64.b64encode(credentials.encode()).decode()
+
+
 def test_serving_layer_is_queryable_through_grafana():
     """Query the published mart through Grafana's own datasource API - the
     same path the dashboard panel "Daily batch summary" uses."""
@@ -98,14 +105,13 @@ def test_serving_layer_is_queryable_through_grafana():
             ],
         }
     ).encode("utf-8")
-    credentials = f"{os.environ['GRAFANA_ADMIN_USER']}:{os.environ['GRAFANA_ADMIN_PASSWORD']}"
     request = urllib.request.Request(
         f"{GRAFANA_URL}/api/ds/query",
         data=body,
         method="POST",
         headers={
             "Content-Type": "application/json",
-            "Authorization": "Basic " + base64.b64encode(credentials.encode()).decode(),
+            "Authorization": _basic_auth("GRAFANA_ADMIN_USER", "GRAFANA_ADMIN_PASSWORD"),
         },
     )
     with urllib.request.urlopen(request, timeout=10) as resp:
@@ -140,13 +146,18 @@ def test_row_counts_reconcile():
 
 
 def test_orchestrator_run_succeeded():
-    """Ask Airflow itself for the state of the pipeline run for this date."""
-    result = subprocess.run(
-        ["docker", "compose", "exec", "-T", "airflow-scheduler",
-         "airflow", "dags", "state", PIPELINE_DAG_ID, LOGICAL_DATE],
-        capture_output=True, text=True, timeout=120, check=True,
+    """Ask Airflow itself, through its REST API, for the state of the
+    pipeline run for this date (one run per logical date)."""
+    logical = f"{LOGICAL_DATE}T00:00:00+00:00"
+    query = urllib.parse.urlencode({"execution_date_gte": logical, "execution_date_lte": logical})
+    request = urllib.request.Request(
+        f"{AIRFLOW_URL}/api/v1/dags/{PIPELINE_DAG_ID}/dagRuns?{query}",
+        headers={"Authorization": _basic_auth("AIRFLOW_ADMIN_USER", "AIRFLOW_ADMIN_PASSWORD")},
     )
-    # Last line is the state, followed by ", <conf>" if the run has a conf.
-    state = result.stdout.strip().splitlines()[-1].split(",")[0].strip()
+    with urllib.request.urlopen(request, timeout=30) as resp:
+        runs = json.loads(resp.read())["dag_runs"]
+
+    assert runs, f"Airflow has no {PIPELINE_DAG_ID} run for {LOGICAL_DATE} - run 'make pipeline DATE={LOGICAL_DATE}'"
+    state = runs[0]["state"]
     print(f"\n[smoke] Airflow run state of {PIPELINE_DAG_ID} for {LOGICAL_DATE}: {state}")
     assert state == "success", f"{PIPELINE_DAG_ID} run for {LOGICAL_DATE} is '{state}', expected 'success'"

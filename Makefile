@@ -25,8 +25,9 @@ lint: ## Run the linter
 pipeline: ## Run the Phase 1 pipeline for one date, e.g. make pipeline DATE=2026-09-30 (add ARGS=--fail)
 	@bash scripts/run_pipeline.sh $(DATE) $(ARGS)
 
-smoke: ## Run the Phase 1 integration smoke test (SMOKE_LOGICAL_DATE=YYYY-MM-DD, default today)
-	@bash -c "set -a && source .env && set +a && SMOKE_LOGICAL_DATE=$(SMOKE_LOGICAL_DATE) python3 -m pytest tests/smoke -v -s"
+smoke: ## Run the Phase 1 smoke test in its own container (SMOKE_LOGICAL_DATE=YYYY-MM-DD, default today)
+	@docker compose build -q smoke
+	@SMOKE_LOGICAL_DATE=$(SMOKE_LOGICAL_DATE) docker compose run --rm smoke
 
 kafka-test: ## Round-trip a message through Kafka to prove connectivity
 	@bash scripts/kafka_connectivity_test.sh

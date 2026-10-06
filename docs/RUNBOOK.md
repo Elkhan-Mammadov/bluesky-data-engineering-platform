@@ -36,7 +36,7 @@ either an Airflow DAG or a `make` command - both do the same thing.
 | | |
 |---|---|
 | Command | `make start-spark` (DAG `03_start_spark_streaming`) |
-| UI | `localhost:8080` (Spark Master), `localhost:4040` (Spark Streaming) |
+| UI | `localhost:18080` (Spark Master), `localhost:4040` (Spark Streaming) |
 | Before | No running job on Spark Master |
 | After | Job listed as running; a new micro-batch appears every 5 seconds; warehouse `raw` and `realtime` schemas grow |
 

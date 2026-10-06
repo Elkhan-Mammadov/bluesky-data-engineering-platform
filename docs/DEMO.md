@@ -7,7 +7,7 @@ Follows the scenario in `docs/RUNBOOK.md`.
 1. Terminal, in the project root, with `.env` already created.
 2. `localhost:8000/docs` - Ingestor status
 3. `localhost:8085` - Kafka UI
-4. `localhost:8080` and `localhost:4040` - Spark Master / Streaming UI
+4. `localhost:18080` and `localhost:4040` - Spark Master / Streaming UI
 5. `localhost:8081` - Airflow
 6. `localhost:8088` - dbt docs
 7. `localhost:3000` - Grafana, "Bluesky Real-Time Activity" dashboard

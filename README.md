@@ -264,7 +264,7 @@ list at any time.
 | Simulator | <http://localhost:8001/docs> |
 | Kafka UI | <http://localhost:8085> |
 | Debezium (Kafka Connect) | <http://localhost:8083/connectors> |
-| Spark Master | <http://localhost:8080> |
+| Spark Master | <http://localhost:18080> |
 | Spark Streaming | <http://localhost:4040> |
 | Airflow | <http://localhost:8081> |
 | dbt docs | <http://localhost:8088> |
@@ -287,7 +287,7 @@ ssh <user>@<remote-host>
 
 ```bash
 ssh -N -L 8000:localhost:8000 -L 8001:localhost:8001 -L 8085:localhost:8085 \
-    -L 8083:localhost:8083 -L 8080:localhost:8080 -L 4040:localhost:4040 \
+    -L 8083:localhost:8083 -L 18080:localhost:18080 -L 4040:localhost:4040 \
     -L 8081:localhost:8081 -L 8088:localhost:8088 -L 3000:localhost:3000 \
     -L 5432:localhost:5432 -L 5433:localhost:5433 <user>@<remote-host>
 ```
@@ -302,7 +302,7 @@ Host bluesky-server
     LocalForward 8001 localhost:8001
     LocalForward 8085 localhost:8085
     LocalForward 8083 localhost:8083
-    LocalForward 8080 localhost:8080
+    LocalForward 18080 localhost:18080
     LocalForward 4040 localhost:4040
     LocalForward 8081 localhost:8081
     LocalForward 8088 localhost:8088

@@ -36,7 +36,7 @@ urls: ## Print all UI links
 	@echo "Simulator        : http://localhost:8001/docs"
 	@echo "Kafka UI         : http://localhost:8085"
 	@echo "Kafka Connect    : http://localhost:8083/connectors"
-	@echo "Spark Master     : http://localhost:8080"
+	@echo "Spark Master     : http://localhost:18080"
 	@echo "Spark Streaming  : http://localhost:4040"
 	@echo "Airflow          : http://localhost:8081"
 	@echo "dbt docs         : http://localhost:8088"
@@ -44,7 +44,7 @@ urls: ## Print all UI links
 
 tunnel: ## Print the SSH tunnel command with all ports
 	@echo 'ssh -N -L 8000:localhost:8000 -L 8001:localhost:8001 -L 8085:localhost:8085 \'
-	@echo '    -L 8083:localhost:8083 -L 8080:localhost:8080 -L 4040:localhost:4040 \'
+	@echo '    -L 8083:localhost:8083 -L 18080:localhost:18080 -L 4040:localhost:4040 \'
 	@echo '    -L 8081:localhost:8081 -L 8088:localhost:8088 -L 3000:localhost:3000 \'
 	@echo '    -L 5432:localhost:5432 -L 5433:localhost:5433 <user>@<remote-host>'
 

@@ -8,7 +8,7 @@ help: ## Show this list of commands
 # ---- Stage 1 (Skeleton & docs): usable today, no infra required ----
 
 env: ## Create .env from .env.example (never overwrites an existing .env)
-	@if [ -f .env ]; then 		echo ".env already exists - not overwriting"; 	else 		cp .env.example .env; 		echo ".env created from .env.example - edit it before running 'make up'"; 	fi
+	@if [ -f .env ]; then 		echo ".env already exists - not overwriting"; 	else 		cp .env.example .env; 		if [ "$$(uname -s)" = "Linux" ]; then sed -i "s/^AIRFLOW_UID=.*/AIRFLOW_UID=$$(id -u)/" .env; echo "AIRFLOW_UID set to $$(id -u) (your user) so containers can write to the mounted folders"; fi; 		echo ".env created from .env.example - edit it before running 'make up'"; 	fi
 
 venv: ## Create a local Python virtual environment with all dependencies
 	python3 -m venv .venv

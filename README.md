@@ -99,7 +99,7 @@ monitor. Full reasoning and rejected alternatives for each tool are in
 ```bash
 git clone <repo-url>
 cd bluesky-data-engineering-platform
-make env      # creates .env from .env.example - edit the salt/passwords
+make env      # creates .env from .env.example (sets AIRFLOW_UID to your user) - edit the salt/passwords
 make venv     # optional: local Python env for editing and running tests
 make up       # builds and starts every service (from Stage 2 onward)
 make health   # confirms every service is healthy

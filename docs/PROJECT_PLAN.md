@@ -356,3 +356,9 @@ before/after results, and `docs/DEMO.md` for the presentation script.
   `max_active_runs=1`. The existing rows were repaired once with
   `scripts/repair_scd2_duplicates.sql`, which keeps the history.
 
+- **2026-10-06: fresh-clone fixes.** A clean clone on the shared server
+  showed two problems. Spark Master's UI moved to host port 18080, because
+  another project holds 8080 there. `make env` now sets `AIRFLOW_UID` to
+  the current user on Linux, so dbt-docs and the dbt tasks can write into
+  the mounted `transformation/` folder. After both fixes, a fresh clone
+  ran the pipeline and `make smoke` (6 passed) with no manual steps.

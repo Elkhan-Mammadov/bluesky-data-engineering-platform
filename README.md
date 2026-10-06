@@ -164,6 +164,8 @@ It checks, for that date: `raw.posts` and `staging.stg_posts` have rows,
 has exactly one; the summary is queryable through Grafana's own API
 (the consumer's interface); raw, staging and marts counts reconcile, or
 the difference is explained; and Airflow reports the run as `success`.
+The test runs in its own container (service `smoke`), so the host
+needs nothing but Docker; the first run builds that small image.
 
 **Or verify each layer by hand:**
 ```bash

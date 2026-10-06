@@ -303,6 +303,15 @@ services:
       AIRFLOW__WEBSERVER__SECRET_KEY: ${AIRFLOW__WEBSERVER__SECRET_KEY}
       AIRFLOW__CORE__LOAD_EXAMPLES: "false"
       DBT_RUN_INTERVAL_MINUTES: ${DBT_RUN_INTERVAL_MINUTES}
+      # Lets the smoke test read run states from the REST API with the
+      # admin login (the UI keeps using its session login).
+      AIRFLOW__API__AUTH_BACKENDS: airflow.api.auth.backend.basic_auth,airflow.api.auth.backend.session
+      # dbt writes its build output and logs inside the container, not into
+      # the bind-mounted transformation/ folder, so it works whatever
+      # AIRFLOW_UID is (even .env.example copied unchanged).
+      DBT_TARGET_PATH: /tmp/dbt/target
+      DBT_LOG_PATH: /tmp/dbt/logs
+      DBT_SEND_ANONYMOUS_USAGE_STATS: "false"
     command: >
       bash -c "airflow db migrate &&
       airflow users create --username ${AIRFLOW_ADMIN_USER} --password ${AIRFLOW_ADMIN_PASSWORD}
@@ -383,6 +392,9 @@ services:
     env_file: .env
     environment:
       DBT_PROFILES_DIR: /opt/airflow/transformation
+      DBT_TARGET_PATH: /tmp/dbt/target
+      DBT_LOG_PATH: /tmp/dbt/logs
+      DBT_SEND_ANONYMOUS_USAGE_STATS: "false"
     working_dir: /opt/airflow/transformation
     entrypoint: ["/bin/bash", "-c"]
     command:
@@ -427,3 +439,25 @@ services:
       timeout: 5s
       retries: 10
       start_period: 15s
+
+  # ============================== Tools =====================================
+
+  # `make smoke` runs the Phase 1 smoke test here, inside the network, so
+  # the host needs nothing but Docker. The "tools" profile keeps it out of
+  # `make up`; `docker compose run smoke` starts it on demand.
+  smoke:
+    build:
+      context: .
+      dockerfile: infra/smoke/Dockerfile
+    profiles: ["tools"]
+    networks: [bluesky-net]
+    env_file: .env
+    environment:
+      SMOKE_LOGICAL_DATE: ${SMOKE_LOGICAL_DATE:-}
+      SMOKE_WAREHOUSE_HOST: warehouse-db
+      SMOKE_WAREHOUSE_PORT: "5432"
+      SMOKE_GRAFANA_URL: http://grafana:3000
+      SMOKE_AIRFLOW_URL: http://airflow-webserver:8080
+    volumes:
+      - ./tests:/app/tests:ro
+    command: ["python", "-m", "pytest", "tests/smoke", "-v", "-s", "-p", "no:cacheprovider"]

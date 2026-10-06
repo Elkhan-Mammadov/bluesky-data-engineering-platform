@@ -273,38 +273,61 @@ Each one is fixed and described in the `docs/PROJECT_PLAN.md` changelog.
   is now published on host port 18080. Inside the network it is still 8080.
 - **dbt-docs unhealthy on a fresh clone.** `.env.example` keeps the image
   default `AIRFLOW_UID=50000`, so containers could not write into the
-  mounted `transformation/` folder owned by the cloning user. `make env`
-  now sets `AIRFLOW_UID` to the current user on Linux.
+  mounted `transformation/` folder owned by the cloning user. dbt now
+  writes `target/` and `logs/` under `/tmp` inside the container, so any
+  `AIRFLOW_UID` works. `make env` also sets it to the current user on Linux.
+- **Smoke test needed host Python packages.** It ran on the host and
+  needed `pytest` and `psycopg2`. It now runs in its own container.
 
 ## 9. Fresh clone
 
-On 2026-10-06 the repo was cloned into a new folder on the server and
-started only with the README steps, with the default `.env` values. The
-folder name gives Docker a new project, so every volume started empty.
+On 2026-10-06 the repo was cloned into a new folder on the server and run
+exactly as a reviewer would: `.env.example` copied unchanged (so
+`AIRFLOW_UID=50000`), then only README commands. The folder name gives
+Docker a new project, so every volume started empty. `make smoke` runs in
+its own container, so nothing from the host's Python was used.
 
 ```
-$ git clone --branch fix-fresh-clone-uid <repo-url> bluesky-fresh-test
-$ cd bluesky-fresh-test
-$ make env && make up && make health
+$ git clone <repo-url> bluesky-fresh-test && cd bluesky-fresh-test
+$ cp .env.example .env
+$ make up && make health
 All services are healthy.
 
 $ make pipeline
 [run_pipeline] logical date: 2026-10-06
 [run_pipeline] triggering
-[run_pipeline] 09:40:57 state: queued
-[run_pipeline] 09:42:53 state: running
-[run_pipeline] 09:43:43 state: success
+[run_pipeline] 12:58:31 state: queued
+[run_pipeline] 13:00:25 state: running
+[run_pipeline] 13:01:16 state: success
 (all 11 tasks success)
 
 $ make smoke
-[smoke] raw.posts rows for 2026-10-06: 501
-[smoke] staging.stg_posts rows for 2026-10-06: 501
-[smoke] marts.fct_user_daily_activity rows for 2026-10-06: 1050, marts.mart_daily_summary rows: 1
-[smoke] Grafana /api/ds/query -> 1 row(s): [[1791244800000], [385], [1050]]
-[smoke] row counts for 2026-10-06 -> raw.posts=501 staging.stg_posts=501 marts.fct_posts=385 mart_daily_summary.total_posts=385 (marts lag: 116 rows)
+ ✔ Image bluesky-fresh-test-smoke Built
+platform linux -- Python 3.12.15, pytest-8.2.2 -- /usr/local/bin/python
+[smoke] raw.posts rows for 2026-10-06: 1075
+[smoke] staging.stg_posts rows for 2026-10-06: 1075
+[smoke] marts.fct_user_daily_activity rows for 2026-10-06: 1894, marts.mart_daily_summary rows: 1
+[smoke] Grafana /api/ds/query -> 1 row(s): [[1791244800000], [801], [1894]]
+[smoke] row counts for 2026-10-06 -> raw.posts=1075 staging.stg_posts=1075 marts.fct_posts=801 mart_daily_summary.total_posts=801 (marts lag: 274 rows)
 [smoke] Airflow run state of 07_daily_batch_report for 2026-10-06: success
-6 passed in 2.91s
+6 passed in 0.35s
+
+$ make pipeline                       # same date again
+[run_pipeline] run for 2026-10-06 exists (success) - clearing it to re-run
+[run_pipeline] 13:02:48 state: success
+
+$ make smoke
+[smoke] marts.fct_user_daily_activity rows for 2026-10-06: 2728, marts.mart_daily_summary rows: 1
+[smoke] row counts for 2026-10-06 -> raw.posts=1482 staging.stg_posts=1482 marts.fct_posts=1311 mart_daily_summary.total_posts=1311 (marts lag: 171 rows)
+6 passed in 0.29s
+
+$ make pipeline DATE=2026-01-01 ARGS=--fail
+[run_pipeline] 13:03:33 state: failed
+start_ingestion failed, the other 10 tasks upstream_failed
+[run_pipeline] FAILED, as requested by the failure switch - see the task states above
 ```
 
 The first run of the fresh stack, from an empty warehouse to a published
-summary, took under 3 minutes.
+summary, took under 3 minutes. The re-run kept exactly one summary row
+for the date; the counts grew only because the live stream kept adding
+posts between the two runs.

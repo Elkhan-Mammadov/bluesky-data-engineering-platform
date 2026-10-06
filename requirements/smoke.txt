@@ -1,0 +1,4 @@
+# Pinned dependencies for the Phase 1 smoke test (runs in its own container,
+# infra/smoke/Dockerfile, so the reviewer needs nothing but Docker).
+pytest==8.2.2
+psycopg2-binary==2.9.9

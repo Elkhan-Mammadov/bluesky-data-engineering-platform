@@ -27,6 +27,8 @@ default_args = {"owner": "bluesky-platform", "retries": 1}
 
 DBT_PROJECT_DIR = "/opt/airflow/transformation"
 INTERVAL_MINUTES = int(os.getenv("DBT_RUN_INTERVAL_MINUTES", "5"))
+# Shared one-slot pool with DAG 07's dbt tasks (created by airflow-init):
+# two dbt invocations rebuilding the same tables at once fail on the swap.
 
 with DAG(
     dag_id="04_dbt_transform",
@@ -34,6 +36,10 @@ with DAG(
     schedule=timedelta(minutes=INTERVAL_MINUTES),
     start_date=datetime(2026, 1, 1),
     catchup=False,
+    # A run can outlast the interval (e.g. dbt_test failing, then retrying);
+    # overlapping runs once ran two `dbt snapshot`s at the same moment and
+    # left users with two current SCD2 rows (scripts/repair_scd2_duplicates.sql).
+    max_active_runs=1,
     default_args=default_args,
     tags=["dbt"],
 ) as dag:
@@ -45,22 +51,27 @@ with DAG(
     # not - see models/staging/_sources.yml), so this never fails the DAG.
     source_freshness = BashOperator(
         task_id="dbt_source_freshness",
+        pool="dbt",
         bash_command="cd " + DBT_PROJECT_DIR + " && " + DBT_BIN + " source freshness || true",
     )
     run_before_snapshot = BashOperator(
         task_id="dbt_run_before_snapshot",
+        pool="dbt",
         bash_command="cd " + DBT_PROJECT_DIR + " && " + DBT_BIN + " run --exclude dim_user",
     )
     snapshot = BashOperator(
         task_id="dbt_snapshot",
+        pool="dbt",
         bash_command="cd " + DBT_PROJECT_DIR + " && " + DBT_BIN + " snapshot",
     )
     run_dim_user = BashOperator(
         task_id="dbt_run_dim_user",
+        pool="dbt",
         bash_command="cd " + DBT_PROJECT_DIR + " && " + DBT_BIN + " run --select dim_user",
     )
     test = BashOperator(
         task_id="dbt_test",
+        pool="dbt",
         bash_command="cd " + DBT_PROJECT_DIR + " && " + DBT_BIN + " test",
     )
     source_freshness >> run_before_snapshot >> snapshot >> run_dim_user >> test

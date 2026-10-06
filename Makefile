@@ -1,4 +1,4 @@
-.PHONY: help env venv up up-infra up-stream up-orchestration up-serving down restart clean         ps health status logs urls tunnel start-ingestion start-cdc start-spark run-dbt         stop-ingestion reset-demo test lint smoke kafka-test
+.PHONY: help env venv up up-infra up-stream up-orchestration up-serving down restart clean         ps health status logs urls tunnel start-ingestion start-cdc start-spark run-dbt         stop-ingestion reset-demo test lint pipeline smoke kafka-test
 
 .DEFAULT_GOAL := help
 
@@ -22,8 +22,11 @@ test: ## Run the unit test suite
 lint: ## Run the linter
 	python3 -m ruff check .
 
-smoke: ## Run the Phase 1 integration smoke test against the real running stack
-	@bash -c "set -a && source .env && set +a && python3 -m pytest tests/smoke -v -s"
+pipeline: ## Run the Phase 1 pipeline for one date, e.g. make pipeline DATE=2026-09-30 (add ARGS=--fail)
+	@bash scripts/run_pipeline.sh $(DATE) $(ARGS)
+
+smoke: ## Run the Phase 1 integration smoke test (SMOKE_LOGICAL_DATE=YYYY-MM-DD, default today)
+	@bash -c "set -a && source .env && set +a && SMOKE_LOGICAL_DATE=$(SMOKE_LOGICAL_DATE) python3 -m pytest tests/smoke -v -s"
 
 kafka-test: ## Round-trip a message through Kafka to prove connectivity
 	@bash scripts/kafka_connectivity_test.sh
@@ -33,7 +36,7 @@ urls: ## Print all UI links
 	@echo "Simulator        : http://localhost:8001/docs"
 	@echo "Kafka UI         : http://localhost:8085"
 	@echo "Kafka Connect    : http://localhost:8083/connectors"
-	@echo "Spark Master     : http://localhost:8080"
+	@echo "Spark Master     : http://localhost:18080"
 	@echo "Spark Streaming  : http://localhost:4040"
 	@echo "Airflow          : http://localhost:8081"
 	@echo "dbt docs         : http://localhost:8088"
@@ -41,7 +44,7 @@ urls: ## Print all UI links
 
 tunnel: ## Print the SSH tunnel command with all ports
 	@echo 'ssh -N -L 8000:localhost:8000 -L 8001:localhost:8001 -L 8085:localhost:8085 \'
-	@echo '    -L 8083:localhost:8083 -L 8080:localhost:8080 -L 4040:localhost:4040 \'
+	@echo '    -L 8083:localhost:8083 -L 18080:localhost:18080 -L 4040:localhost:4040 \'
 	@echo '    -L 8081:localhost:8081 -L 8088:localhost:8088 -L 3000:localhost:3000 \'
 	@echo '    -L 5432:localhost:5432 -L 5433:localhost:5433 <user>@<remote-host>'
 

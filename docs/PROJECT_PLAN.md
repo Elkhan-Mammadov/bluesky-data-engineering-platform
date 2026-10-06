@@ -362,3 +362,10 @@ before/after results, and `docs/DEMO.md` for the presentation script.
   the current user on Linux, so dbt-docs and the dbt tasks can write into
   the mounted `transformation/` folder. After both fixes, a fresh clone
   ran the pipeline and `make smoke` (6 passed) with no manual steps.
+- **2026-10-06: reviewer flow needs only Docker.** `make smoke` runs the
+  smoke test in its own container (service `smoke`) and reads the run
+  state from Airflow's REST API, so a clean machine needs no Python
+  packages. dbt writes its build output and logs under `/tmp` in the
+  container, so `.env.example` copied unchanged works on Linux too.
+  Verified with a fresh clone: pipeline, smoke, same-date re-run and the
+  failure switch all behaved as documented.

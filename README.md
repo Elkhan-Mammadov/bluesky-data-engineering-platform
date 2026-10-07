@@ -244,8 +244,8 @@ own:
 | `make health` | Run `scripts/check_health.sh` |
 | `make status` | Run `scripts/pipeline_status.sh` (row counts per layer, every 5s) |
 | `make logs service=<name>` | Tail one service's logs |
-| `make urls` | Print every UI link |
-| `make tunnel` | Print the SSH tunnel command with every port |
+| `make urls` | Print every UI link, with the ports set in `.env` |
+| `make tunnel` | Print the SSH tunnel command with every port from `.env` (`HOST=user@host` fills in the host) |
 | `make start-ingestion` / `make stop-ingestion` | DAG 01 / DAG 05 |
 | `make start-cdc` | DAG 02 |
 | `make start-spark` | DAG 03 |
@@ -287,7 +287,7 @@ SSH, with every UI reached through an SSH tunnel.
 ssh <user>@<remote-host>
 ```
 
-**Open a tunnel for every UI port** (also printed by `make tunnel`):
+**Open a tunnel for every UI port** (`make tunnel HOST=<user>@<remote-host>` prints it with the ports from `.env`; with the defaults it is):
 
 ```bash
 ssh -N -L 8000:localhost:8000 -L 8001:localhost:8001 -L 8085:localhost:8085 \

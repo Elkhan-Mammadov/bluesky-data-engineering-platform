@@ -14,7 +14,7 @@ set +a
 
 # Reachable from the host via the published port (127.0.0.1:8083), unlike
 # KAFKA_CONNECT_URL in .env which only resolves inside the Docker network.
-CONNECT_URL="http://localhost:8083"
+CONNECT_URL="http://localhost:${KAFKA_CONNECT_HOST_PORT:-8083}"
 CONNECTOR_NAME="source-db-connector"
 
 if curl -sf "$CONNECT_URL/connectors/$CONNECTOR_NAME" > /dev/null 2>&1; then

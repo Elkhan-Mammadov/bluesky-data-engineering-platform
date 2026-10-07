@@ -93,6 +93,8 @@ monitor. Full reasoning and rejected alternatives for each tool are in
 - `git`, `make`
 - 16 GB RAM recommended, 30 GB free disk
 - Outbound access on port 443 (to reach Jetstream)
+- Free host ports for the UIs and databases listed under "UI links". If one is
+  taken, change its `*_HOST_PORT` value in `.env`.
 
 ## Setup
 

@@ -278,6 +278,9 @@ Each one is fixed and described in the `docs/PROJECT_PLAN.md` changelog.
   `AIRFLOW_UID` works. `make env` also sets it to the current user on Linux.
 - **Smoke test needed host Python packages.** It ran on the host and
   needed `pytest` and `psycopg2`. It now runs in its own container.
+- **More port clashes on the shared server.** On 2026-10-07 another
+  project held 5432 and 8088. Every host port is now set in `.env`
+  (`*_HOST_PORT`); the server's `.env` uses 15432 and 18088.
 
 ## 9. Fresh clone
 

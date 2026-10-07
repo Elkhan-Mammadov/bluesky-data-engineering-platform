@@ -19,7 +19,7 @@ docker compose exec -T warehouse-db psql -U "$WAREHOUSE_DB_USER" -d "$WAREHOUSE_
 "
 
 echo "[reset_demo.sh] deleting the Debezium connector (if it exists)..."
-curl -s -X DELETE "http://localhost:8083/connectors/source-db-connector" > /dev/null || true
+curl -s -X DELETE "http://localhost:${KAFKA_CONNECT_HOST_PORT:-8083}/connectors/source-db-connector" > /dev/null || true
 
 echo "[reset_demo.sh] truncating source-db tables..."
 docker compose exec -T source-db psql -U "$SOURCE_DB_USER" -d "$SOURCE_DB_NAME" -c "

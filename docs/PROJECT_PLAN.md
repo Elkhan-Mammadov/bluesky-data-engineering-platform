@@ -369,3 +369,8 @@ before/after results, and `docs/DEMO.md` for the presentation script.
   container, so `.env.example` copied unchanged works on Linux too.
   Verified with a fresh clone: pipeline, smoke, same-date re-run and the
   failure switch all behaved as documented.
+- **2026-10-07: host ports come from `.env`.** On the shared server other
+  projects took 5432 and 8088 as well, so source-db and dbt-docs could not
+  start. Every published port is now a `*_HOST_PORT` variable in
+  `.env.example`, with the old values as defaults. A clash is fixed in
+  `.env`, not in code.

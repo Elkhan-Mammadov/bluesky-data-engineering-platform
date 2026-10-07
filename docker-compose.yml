@@ -37,7 +37,7 @@ services:
       - source_db_data:/var/lib/postgresql/data
       - ./infra/postgres/source-init:/docker-entrypoint-initdb.d:ro
     ports:
-      - "127.0.0.1:5432:5432"
+      - "127.0.0.1:${SOURCE_DB_HOST_PORT:-5432}:5432"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
       interval: 5s
@@ -57,7 +57,7 @@ services:
       - warehouse_db_data:/var/lib/postgresql/data
       - ./infra/postgres/warehouse-init:/docker-entrypoint-initdb.d:ro
     ports:
-      - "127.0.0.1:5433:5432"
+      - "127.0.0.1:${WAREHOUSE_DB_HOST_PORT:-5433}:5432"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
       interval: 5s
@@ -142,7 +142,7 @@ services:
       KAFKA_CLUSTERS_0_KAFKACONNECT_0_NAME: connect
       KAFKA_CLUSTERS_0_KAFKACONNECT_0_ADDRESS: ${KAFKA_CONNECT_URL}
     ports:
-      - "127.0.0.1:8085:8080"
+      - "127.0.0.1:${KAFKA_UI_HOST_PORT:-8085}:8080"
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://localhost:8080/actuator/health || exit 1"]
       interval: 10s
@@ -167,7 +167,7 @@ services:
       OFFSET_STORAGE_TOPIC: connect_offsets
       STATUS_STORAGE_TOPIC: connect_statuses
     ports:
-      - "127.0.0.1:8083:8083"
+      - "127.0.0.1:${KAFKA_CONNECT_HOST_PORT:-8083}:8083"
     healthcheck:
       test: ["CMD-SHELL", "curl -f http://localhost:8083/connectors || exit 1"]
       interval: 10s
@@ -191,7 +191,7 @@ services:
       warehouse-db:
         condition: service_healthy
     ports:
-      - "127.0.0.1:8000:8000"
+      - "127.0.0.1:${INGESTOR_HOST_PORT:-8000}:8000"
 
   simulator:
     build:
@@ -202,7 +202,7 @@ services:
     networks: [bluesky-net]
     env_file: .env
     ports:
-      - "127.0.0.1:8001:8001"
+      - "127.0.0.1:${SIMULATOR_HOST_PORT:-8001}:8001"
 
   # ============================ Spark cluster ===============================
 
@@ -216,7 +216,7 @@ services:
     command: ["/opt/spark/bin/spark-class", "org.apache.spark.deploy.master.Master",
                "--host", "spark-master", "--port", "7077", "--webui-port", "8080"]
     ports:
-      - "127.0.0.1:18080:8080"
+      - "127.0.0.1:${SPARK_MASTER_UI_HOST_PORT:-18080}:8080"
     healthcheck:
       test: ["CMD-SHELL", "curl -f http://localhost:8080 || exit 1"]
       interval: 10s
@@ -270,7 +270,7 @@ services:
     volumes:
       - spark_checkpoints:/opt/app/checkpoints
     ports:
-      - "127.0.0.1:4040:4040"
+      - "127.0.0.1:${SPARK_UI_HOST_PORT:-4040}:4040"
     healthcheck:
       test: ["CMD-SHELL", "find /tmp/launcher_heartbeat -mmin -1 2>/dev/null | grep -q . || exit 1"]
       interval: 10s
@@ -340,7 +340,7 @@ services:
       - ./transformation:/opt/airflow/transformation
       - airflow_logs:/opt/airflow/logs
     ports:
-      - "127.0.0.1:8081:8080"
+      - "127.0.0.1:${AIRFLOW_UI_HOST_PORT:-8081}:8080"
     healthcheck:
       test: ["CMD-SHELL", "curl -f http://localhost:8080/health || exit 1"]
       interval: 10s
@@ -402,7 +402,7 @@ services:
     volumes:
       - ./transformation:/opt/airflow/transformation
     ports:
-      - "127.0.0.1:8088:8088"
+      - "127.0.0.1:${DBT_DOCS_HOST_PORT:-8088}:8088"
     healthcheck:
       test: ["CMD-SHELL", "curl -f http://localhost:8088 || exit 1"]
       interval: 10s
@@ -432,7 +432,7 @@ services:
       - ./serving/grafana/dashboards.yml:/etc/grafana/provisioning/dashboards/dashboards.yml:ro
       - ./serving/grafana:/var/lib/grafana/dashboards:ro
     ports:
-      - "127.0.0.1:3000:3000"
+      - "127.0.0.1:${GRAFANA_HOST_PORT:-3000}:3000"
     healthcheck:
       test: ["CMD-SHELL", "curl -f http://localhost:3000/api/health || exit 1"]
       interval: 10s

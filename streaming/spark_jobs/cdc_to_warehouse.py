@@ -159,6 +159,10 @@ def run() -> None:
         .option("kafka.bootstrap.servers", os.environ["KAFKA_BOOTSTRAP_SERVERS"])
         .option("subscribe", ",".join(TOPICS))
         .option("startingOffsets", "earliest")
+        # Caps one micro-batch. Live traffic is ~1k messages per 5s batch;
+        # after a pause the Kafka backlog can be millions, and reading it in
+        # one batch ran the executor out of memory (exit code 52) forever.
+        .option("maxOffsetsPerTrigger", os.environ.get("SPARK_MAX_OFFSETS_PER_TRIGGER", "50000"))
         .load()
     )
 

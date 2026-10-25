@@ -34,13 +34,13 @@ the run the same way. scripts/run_pipeline.sh wraps both.
 from __future__ import annotations
 
 import os
-import time
 from datetime import datetime, timedelta, timezone
 
 from airflow import DAG
 from airflow.exceptions import AirflowFailException
 from airflow.operators.bash import BashOperator
 from airflow.operators.python import PythonOperator
+from airflow.sensors.python import PythonSensor
 
 import _common
 
@@ -120,71 +120,54 @@ def start_spark(**_context) -> None:
         stats["note"] = "control.pipeline_switches.spark_enabled=true"
 
 
-def check_source_partition(ds: str, **_context) -> dict:
-    """Count the logical date's rows in source-db. Today's partition must
-    be receiving data; a past date may legitimately be empty (before the
-    project ran, or past DATA_RETENTION_DAYS)."""
+def _poke_source_partition(ds: str, ti=None, **_context) -> bool:
+    """Poke until today's partition has rows in source-db (past dates may be empty)."""
     is_today = ds == datetime.now(timezone.utc).date().isoformat()
-    with _common.task_run(
-        DAG_ID, "check_source_partition",
-        input_location=f"source-db public.{{{','.join(ENTITIES)}}} occurred_at::date={ds}",
-        output_location="XCom (partition row counts)",
-    ) as stats:
-        deadline = time.monotonic() + SOURCE_WAIT_SECONDS
-        while True:
-            with _common.get_source_conn() as conn:
-                counts = _partition_counts(conn, "", ds)
-            total = sum(counts.values())
-            if total > 0 or not is_today or time.monotonic() > deadline:
-                break
-            time.sleep(POLL_SECONDS)
-        if is_today and total == 0:
-            raise RuntimeError(f"no rows for today ({ds}) in source-db after {SOURCE_WAIT_SECONDS}s - is ingestion running?")
-
+    with _common.get_source_conn() as conn:
+        counts = _partition_counts(conn, "", ds)
+    total = sum(counts.values())
+    if total > 0 or not is_today:
         with _common.get_warehouse_conn() as conn, conn.cursor() as cur:
             cur.execute("SELECT now()")
             snapshot_at = cur.fetchone()[0]
-        stats["rows_read"] = total
-        stats["note"] = f"per_entity={counts}" + ("" if total else " (empty partition)")
-    return {"counts": counts, "total": total, "snapshot_at": snapshot_at.isoformat()}
+        _common.log_pipeline_run(
+            DAG_ID, "check_source_partition",
+            "success" if total > 0 else "skipped",
+            f"rows={total} per_entity={counts}",
+        )
+        if ti:
+            ti.xcom_push(key="return_value", value={
+                "counts": counts,
+                "total": total,
+                "snapshot_at": snapshot_at.isoformat(),
+            })
+        return True
+    return False
 
 
-def load_raw_partition(ds: str, ti=None, **_context) -> None:
-    """Wait until Spark has written a micro-batch that started after the
-    source snapshot, then reconcile the partition's raw.* counts with it."""
-    source = ti.xcom_pull(task_ids="check_source_partition")
-    with _common.task_run(
-        DAG_ID, "load_raw_partition",
-        input_location="Kafka topics bluesky.public.* (via Spark)",
-        output_location=f"warehouse-db raw.{{{','.join(ENTITIES)}}} occurred_at::date={ds}",
-    ) as stats:
-        deadline = time.monotonic() + RAW_CATCH_UP_TIMEOUT_SECONDS
-        while True:
-            with _common.get_warehouse_conn() as conn, conn.cursor() as cur:
-                cur.execute(
-                    "SELECT coalesce(max(created_at) > %s::timestamptz + %s * interval '1 second', false)"
-                    " FROM dq.stream_batches",
-                    (source["snapshot_at"], RAW_CATCH_UP_MARGIN_SECONDS),
-                )
-                caught_up = cur.fetchone()[0]
-            if caught_up:
-                break
-            if time.monotonic() > deadline:
-                raise RuntimeError(
-                    f"Spark wrote no micro-batch within {RAW_CATCH_UP_TIMEOUT_SECONDS}s of the source snapshot"
-                )
-            time.sleep(POLL_SECONDS)
-
-        with _common.get_warehouse_conn() as conn:
-            counts = _partition_counts(conn, "raw.", ds)
-        total = sum(counts.values())
-        if source["total"] > 0 and total == 0:
-            raise RuntimeError(f"source-db has {source['total']} rows for {ds} but raw.* has none")
-        stats["rows_read"] = source["total"]
-        stats["rows_written"] = total
-        # raw can exceed the snapshot (rows that arrived since) or trail it
-        # (deletes replicated since) - both are expected on a live stream.
-        stats["note"] = f"per_entity={counts} difference_vs_source_snapshot={total - source['total']}"
+def _poke_load_raw_partition(ds: str, ti=None, **_context) -> bool:
+    """Poke until Spark has written a micro-batch that covers the source snapshot."""
+    source = ti.xcom_pull(task_ids="check_source_partition") if ti else {}
+    with _common.get_warehouse_conn() as conn, conn.cursor() as cur:
+        cur.execute(
+            "SELECT coalesce(max(created_at) > %s::timestamptz + %s * interval '1 second', false)"
+            " FROM dq.stream_batches",
+            (source["snapshot_at"], RAW_CATCH_UP_MARGIN_SECONDS),
+        )
+        caught_up = cur.fetchone()[0]
+    if not caught_up:
+        return False
+    with _common.get_warehouse_conn() as conn:
+        counts = _partition_counts(conn, "raw.", ds)
+    total = sum(counts.values())
+    if source["total"] > 0 and total == 0:
+        raise RuntimeError(f"source-db has {source['total']} rows for {ds} but raw.* has none")
+    _common.log_pipeline_run(
+        DAG_ID, "load_raw_partition", "success",
+        f"rows_read={source['total']} rows_written={total} per_entity={counts}"
+        f" difference_vs_source_snapshot={total - source['total']}",
+    )
+    return True
 
 
 def check_partition_quality(ds: str, ti=None, dag_run=None, **_context) -> None:
@@ -311,8 +294,20 @@ with DAG(
     )
     cdc = PythonOperator(task_id="start_cdc", python_callable=start_cdc)
     spark = PythonOperator(task_id="start_spark", python_callable=start_spark)
-    source_partition = PythonOperator(task_id="check_source_partition", python_callable=check_source_partition)
-    raw_partition = PythonOperator(task_id="load_raw_partition", python_callable=load_raw_partition)
+    source_partition = PythonSensor(
+        task_id="check_source_partition",
+        python_callable=_poke_source_partition,
+        mode="reschedule",
+        poke_interval=POLL_SECONDS,
+        timeout=SOURCE_WAIT_SECONDS,
+    )
+    raw_partition = PythonSensor(
+        task_id="load_raw_partition",
+        python_callable=_poke_load_raw_partition,
+        mode="reschedule",
+        poke_interval=POLL_SECONDS,
+        timeout=RAW_CATCH_UP_TIMEOUT_SECONDS,
+    )
     run_before_snapshot = _dbt(
         "dbt_run_before_snapshot", "run --exclude dim_user", "raw.*", "staging.*, intermediate.*, marts.*"
     )

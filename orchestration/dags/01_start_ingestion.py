@@ -17,12 +17,12 @@ and the whole DAG run is marked failed - see docs/RUNBOOK.md.
 from __future__ import annotations
 
 import os
-import time
 from datetime import datetime, timedelta
 
 from airflow import DAG
 from airflow.exceptions import AirflowFailException
 from airflow.operators.python import PythonOperator
+from airflow.sensors.python import PythonSensor
 
 import _common
 
@@ -37,7 +37,7 @@ default_args = {
 }
 
 
-def enable_ingestion() -> None:
+def enable_ingestion(ti=None, **_) -> None:
     if os.environ.get("FORCE_INGESTION_FAILURE", "false").lower() == "true":
         _common.log_pipeline_run(
             DAG_ID, "enable_ingestion", "failed", "FORCE_INGESTION_FAILURE=true (deliberate demo failure)"
@@ -48,22 +48,21 @@ def enable_ingestion() -> None:
             "Deliberate failure: FORCE_INGESTION_FAILURE=true is set. "
             "Unset it (or omit -e) to run normally."
         )
+    if ti:
+        ti.xcom_push(key="cursor_before", value=_common.get_ingestion_cursor())
     _common.set_switch("ingestion_enabled", True)
     _common.log_pipeline_run(DAG_ID, "enable_ingestion", "success")
 
 
-def check_source_db_growth() -> None:
-    before = _common.get_ingestion_cursor()
-    time.sleep(GROWTH_CHECK_WAIT_SECONDS)
+def check_source_db_growth(ti=None, **_) -> bool:
+    before = ti.xcom_pull(task_ids="enable_ingestion", key="cursor_before") if ti else None
     after = _common.get_ingestion_cursor()
-
     grew = after is not None and (before is None or after > before)
-    status = "success" if grew else "failed"
-    _common.log_pipeline_run(
-        DAG_ID, "check_source_db_growth", status, f"cursor {before} -> {after}"
-    )
-    if not grew:
-        raise RuntimeError(f"ingestion_cursor did not advance: {before} -> {after}")
+    if grew:
+        _common.log_pipeline_run(
+            DAG_ID, "check_source_db_growth", "success", f"cursor {before} -> {after}"
+        )
+    return grew
 
 
 with DAG(
@@ -76,5 +75,11 @@ with DAG(
     tags=["control-switch", "ingestion"],
 ) as dag:
     enable = PythonOperator(task_id="enable_ingestion", python_callable=enable_ingestion)
-    check = PythonOperator(task_id="check_source_db_growth", python_callable=check_source_db_growth)
+    check = PythonSensor(
+        task_id="check_source_db_growth",
+        python_callable=check_source_db_growth,
+        mode="reschedule",
+        poke_interval=5,
+        timeout=60,
+    )
     enable >> check

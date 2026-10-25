@@ -7,11 +7,11 @@ appears in dq.stream_batches (i.e. a real micro-batch actually ran).
 
 from __future__ import annotations
 
-import time
 from datetime import datetime
 
 from airflow import DAG
 from airflow.operators.python import PythonOperator
+from airflow.sensors.python import PythonSensor
 
 import _common
 
@@ -23,11 +23,6 @@ GROWTH_CHECK_WAIT_SECONDS = 40
 default_args = {"owner": "bluesky-platform", "retries": 2}
 
 
-def enable_spark_streaming() -> None:
-    _common.set_switch("spark_enabled", True)
-    _common.log_pipeline_run(DAG_ID, "enable_spark_streaming", "success")
-
-
 def _latest_batch_time():
     with _common.get_warehouse_conn() as conn:
         with conn.cursor() as cur:
@@ -35,16 +30,21 @@ def _latest_batch_time():
             return cur.fetchone()[0]
 
 
-def check_warehouse_growth() -> None:
+def enable_spark_streaming(ti=None, **_) -> None:
     before = _latest_batch_time()
-    time.sleep(GROWTH_CHECK_WAIT_SECONDS)
-    after = _latest_batch_time()
+    if ti:
+        ti.xcom_push(key="batch_time_before", value=before.isoformat() if before else None)
+    _common.set_switch("spark_enabled", True)
+    _common.log_pipeline_run(DAG_ID, "enable_spark_streaming", "success")
 
-    grew = after is not None and (before is None or after > before)
-    status = "success" if grew else "failed"
-    _common.log_pipeline_run(DAG_ID, "check_warehouse_growth", status, f"{before} -> {after}")
-    if not grew:
-        raise RuntimeError(f"dq.stream_batches did not grow: {before} -> {after}")
+
+def check_warehouse_growth(ti=None, **_) -> bool:
+    before_str = ti.xcom_pull(task_ids="enable_spark_streaming", key="batch_time_before") if ti else None
+    after = _latest_batch_time()
+    grew = after is not None and (before_str is None or after.isoformat() > before_str)
+    if grew:
+        _common.log_pipeline_run(DAG_ID, "check_warehouse_growth", "success", f"{before_str} -> {after}")
+    return grew
 
 
 with DAG(
@@ -57,5 +57,11 @@ with DAG(
     tags=["control-switch", "spark"],
 ) as dag:
     enable = PythonOperator(task_id="enable_spark_streaming", python_callable=enable_spark_streaming)
-    check = PythonOperator(task_id="check_warehouse_growth", python_callable=check_warehouse_growth)
+    check = PythonSensor(
+        task_id="check_warehouse_growth",
+        python_callable=check_warehouse_growth,
+        mode="reschedule",
+        poke_interval=10,
+        timeout=120,
+    )
     enable >> check

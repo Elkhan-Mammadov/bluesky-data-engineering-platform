@@ -11,3 +11,4 @@ select
     has_media,
     is_reply
 from {{ source('raw', 'posts') }}
+where not is_deleted

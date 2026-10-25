@@ -79,7 +79,8 @@ def _upsert_raw_row(cur, row: dict[str, Any]) -> None:
         payload = row["before"]
         where_clause = " AND ".join(f"{col} = %s" for col in conflict_key)
         cur.execute(
-            f"DELETE FROM raw.{table} WHERE {where_clause}",
+            f"UPDATE raw.{table} SET is_deleted = true, cdc_op = 'd', ingested_at = now()"
+            f" WHERE {where_clause}",
             [payload[col] for col in conflict_key],
         )
         return
@@ -97,7 +98,8 @@ def _upsert_raw_row(cur, row: dict[str, Any]) -> None:
             {set_clause},
             kafka_offset = EXCLUDED.kafka_offset,
             cdc_op       = EXCLUDED.cdc_op,
-            ingested_at  = now()
+            ingested_at  = now(),
+            is_deleted   = false
         """,
         [payload.get(col) for col in columns] + [row.get("kafka_offset"), row["op"]],
     )

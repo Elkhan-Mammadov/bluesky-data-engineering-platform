@@ -18,7 +18,8 @@ psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" <<-E
         last_seen_at  TIMESTAMPTZ NOT NULL,
         kafka_offset  BIGINT,
         cdc_op        TEXT,
-        ingested_at   TIMESTAMPTZ NOT NULL DEFAULT now()
+        ingested_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
+        is_deleted    BOOLEAN NOT NULL DEFAULT false
     );
 
     CREATE TABLE IF NOT EXISTS raw.posts (
@@ -34,6 +35,7 @@ psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" <<-E
         kafka_offset BIGINT,
         cdc_op       TEXT,
         ingested_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+        is_deleted   BOOLEAN NOT NULL DEFAULT false,
         PRIMARY KEY (user_id_hash, record_key)
     );
 
@@ -46,6 +48,7 @@ psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" <<-E
         kafka_offset        BIGINT,
         cdc_op              TEXT,
         ingested_at         TIMESTAMPTZ NOT NULL DEFAULT now(),
+        is_deleted          BOOLEAN NOT NULL DEFAULT false,
         PRIMARY KEY (user_id_hash, record_key)
     );
 
@@ -58,6 +61,7 @@ psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" <<-E
         kafka_offset        BIGINT,
         cdc_op              TEXT,
         ingested_at         TIMESTAMPTZ NOT NULL DEFAULT now(),
+        is_deleted          BOOLEAN NOT NULL DEFAULT false,
         PRIMARY KEY (user_id_hash, record_key)
     );
 
@@ -69,6 +73,7 @@ psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" <<-E
         kafka_offset        BIGINT,
         cdc_op              TEXT,
         ingested_at         TIMESTAMPTZ NOT NULL DEFAULT now(),
+        is_deleted          BOOLEAN NOT NULL DEFAULT false,
         PRIMARY KEY (user_id_hash, record_key)
     );
 
@@ -80,6 +85,7 @@ psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" <<-E
         kafka_offset        BIGINT,
         cdc_op              TEXT,
         ingested_at         TIMESTAMPTZ NOT NULL DEFAULT now(),
+        is_deleted          BOOLEAN NOT NULL DEFAULT false,
         PRIMARY KEY (user_id_hash, record_key)
     );
 
@@ -89,7 +95,8 @@ psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" <<-E
         operation    TEXT NOT NULL,
         kafka_offset BIGINT,
         cdc_op       TEXT,
-        ingested_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+        ingested_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+        is_deleted   BOOLEAN NOT NULL DEFAULT false
     );
 
     -- ---------------------------------------------------------------

@@ -3,3 +3,4 @@ select
     occurred_at,
     operation
 from {{ source('raw', 'profile_updates') }}
+where not is_deleted

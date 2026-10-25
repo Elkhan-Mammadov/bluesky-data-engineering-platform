@@ -7,3 +7,4 @@ select
     target_user_id_hash,
     target_record_key
 from {{ source('raw', 'reposts') }}
+where not is_deleted

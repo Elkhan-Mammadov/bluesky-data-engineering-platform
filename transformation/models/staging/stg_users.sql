@@ -6,3 +6,4 @@ select
     first_seen_at,
     last_seen_at
 from {{ source('raw', 'users') }}
+where not is_deleted

@@ -6,3 +6,4 @@ select
     occurred_at::date as occurred_date,
     target_user_id_hash
 from {{ source('raw', 'follows') }}
+where not is_deleted

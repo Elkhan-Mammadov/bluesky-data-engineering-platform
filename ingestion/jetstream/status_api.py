@@ -6,6 +6,7 @@ Starts the IngestorRunner as a background task and exposes its live state.
 from __future__ import annotations
 
 import asyncio
+import logging
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
@@ -14,13 +15,24 @@ from pydantic import BaseModel
 from ingestion.common.config import load_config
 from ingestion.jetstream.runner import IngestorRunner
 
+logger = logging.getLogger(__name__)
+
 _config = load_config()
 _runner = IngestorRunner(_config)
 
 
+async def _run_forever() -> None:
+    while True:
+        try:
+            await _runner.run()
+        except Exception:
+            logger.exception("ingestor runner crashed, restarting in 5s")
+            await asyncio.sleep(5)
+
+
 @asynccontextmanager
 async def _lifespan(app: FastAPI):
-    task = asyncio.create_task(_runner.run())
+    task = asyncio.create_task(_run_forever())
     yield
     task.cancel()
 
